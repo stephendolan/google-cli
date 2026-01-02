@@ -1,0 +1,20 @@
+import { Command } from 'commander';
+import { client } from '../lib/gmail-client.js';
+import { outputJson } from '../lib/output.js';
+import { withErrorHandling } from '../lib/command-utils.js';
+
+export function createLabelsCommand(): Command {
+  const cmd = new Command('labels').description('Label operations');
+
+  cmd
+    .command('list')
+    .description('List all labels')
+    .action(
+      withErrorHandling(async () => {
+        const labels = await client.listLabels();
+        outputJson(labels);
+      })
+    );
+
+  return cmd;
+}

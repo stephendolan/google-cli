@@ -1,0 +1,51 @@
+{
+  "name": "@anthropic-stephen/gmail-cli",
+  "version": "0.1.0",
+  "description": "CLI for Gmail with MCP support - read, search, and draft emails",
+  "type": "module",
+  "main": "./dist/cli.js",
+  "bin": {
+    "gmail": "dist/cli.js"
+  },
+  "scripts": {
+    "dev": "bun run src/cli.ts",
+    "build": "bun run tsup",
+    "test": "bun run vitest",
+    "lint": "oxlint src",
+    "format": "biome format --write src",
+    "format:check": "biome format src",
+    "typecheck": "bun run tsc --noEmit",
+    "link": "bun run build && bun link",
+    "start": "bun dist/cli.js",
+    "prepublishOnly": "bun run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@napi-rs/keyring": "^1.2.0",
+    "commander": "^12.0.0",
+    "googleapis": "^144.0.0",
+    "open": "^10.0.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "@types/bun": "latest",
+    "oxlint": "^0.16.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^3.0.0"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "gmail",
+    "cli",
+    "mcp",
+    "email"
+  ],
+  "license": "MIT"
+}
