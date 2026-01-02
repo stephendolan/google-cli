@@ -1,11 +1,11 @@
 {
-  "name": "@stephendolan/gmail-cli",
-  "version": "0.1.0",
-  "description": "CLI for Gmail with MCP support - read, search, and draft emails",
+  "name": "@stephendolan/google-cli",
+  "version": "0.2.0",
+  "description": "CLI for Google services (Gmail, Calendar) with MCP support",
   "type": "module",
   "main": "./dist/cli.js",
   "bin": {
-    "gmail": "dist/cli.js"
+    "google": "dist/cli.js"
   },
   "scripts": {
     "dev": "bun run src/cli.ts",
@@ -43,6 +43,8 @@
   ],
   "keywords": [
     "gmail",
+    "calendar",
+    "google",
     "cli",
     "mcp",
     "email"

@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { client } from '../lib/gmail-client.js';
+import { gmailClient } from '../lib/gmail-client.js';
 import { outputJson } from '../lib/output.js';
 import { withErrorHandling } from '../lib/command-utils.js';
 
@@ -11,7 +11,7 @@ export function createLabelsCommand(): Command {
     .description('List all labels')
     .action(
       withErrorHandling(async () => {
-        const labels = await client.listLabels();
+        const labels = await gmailClient.listLabels();
         outputJson(labels);
       })
     );

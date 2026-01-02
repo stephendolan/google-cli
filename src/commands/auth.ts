@@ -8,13 +8,13 @@ export function createAuthCommand(): Command {
 
   cmd
     .command('login')
-    .description('Authenticate with Gmail using OAuth2')
+    .description('Authenticate with Google using OAuth2')
     .requiredOption('--client-id <id>', 'Google OAuth2 Client ID')
     .requiredOption('--client-secret <secret>', 'Google OAuth2 Client Secret')
     .action(
       withErrorHandling(async (options) => {
         await startAuthFlow(options.clientId, options.clientSecret);
-        outputJson({ status: 'authenticated', message: 'Successfully authenticated with Gmail' });
+        outputJson({ status: 'authenticated', message: 'Successfully authenticated with Google' });
       })
     );
 

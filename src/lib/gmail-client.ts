@@ -1,6 +1,6 @@
 import { google } from 'googleapis';
 import { getAuthenticatedClient } from './auth.js';
-import { GmailCliError } from './errors.js';
+import { GoogleCliError } from './errors.js';
 import type {
   Message,
   MessageList,
@@ -68,7 +68,18 @@ function parseMessage(message: Message): ParsedMessage {
   };
 }
 
+function validateEmailHeader(value: string): void {
+  if (/[\r\n]/.test(value)) {
+    throw new GoogleCliError('Email header contains invalid newline characters');
+  }
+}
+
 function createRawEmail(params: CreateDraftParams): string {
+  validateEmailHeader(params.to);
+  validateEmailHeader(params.subject);
+  if (params.cc) validateEmailHeader(params.cc);
+  if (params.bcc) validateEmailHeader(params.bcc);
+
   const lines = [
     `To: ${params.to}`,
     `Subject: ${params.subject}`,
@@ -165,7 +176,7 @@ export class GmailClient {
 
   async createDraft(params: CreateDraftParams): Promise<Draft> {
     if (!params.to || !params.subject) {
-      throw new GmailCliError('Draft requires "to" and "subject" fields');
+      throw new GoogleCliError('Draft requires "to" and "subject" fields');
     }
 
     const gmail = await this.getGmail();
@@ -182,4 +193,4 @@ export class GmailClient {
   }
 }
 
-export const client = new GmailClient();
+export const gmailClient = new GmailClient();

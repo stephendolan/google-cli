@@ -1,14 +1,18 @@
 import { google } from 'googleapis';
 import { createServer } from 'node:http';
+import { randomBytes } from 'node:crypto';
 import open from 'open';
 
-const SERVICE = 'gmail-cli';
+const SERVICE = 'google-cli';
 const REDIRECT_PORT = 8089;
 const REDIRECT_URI = `http://localhost:${REDIRECT_PORT}/callback`;
+
+let authStateToken: string | null = null;
 
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/gmail.compose',
+  'https://www.googleapis.com/auth/calendar.readonly',
 ];
 
 interface Tokens {
@@ -69,8 +73,14 @@ async function deleteFromKeyring(account: string): Promise<boolean> {
 }
 
 export async function getClientCredentials(): Promise<ClientCredentials | null> {
-  const clientId = (await getFromKeyring('client_id')) || process.env.GMAIL_CLIENT_ID;
-  const clientSecret = (await getFromKeyring('client_secret')) || process.env.GMAIL_CLIENT_SECRET;
+  const clientId =
+    (await getFromKeyring('client_id')) ||
+    process.env.GOOGLE_CLIENT_ID ||
+    process.env.GMAIL_CLIENT_ID;
+  const clientSecret =
+    (await getFromKeyring('client_secret')) ||
+    process.env.GOOGLE_CLIENT_SECRET ||
+    process.env.GMAIL_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) return null;
   return { client_id: clientId, client_secret: clientSecret };
@@ -82,7 +92,8 @@ export async function setClientCredentials(clientId: string, clientSecret: strin
 }
 
 export async function getTokens(): Promise<Tokens | null> {
-  const tokensJson = (await getFromKeyring('tokens')) || process.env.GMAIL_TOKENS;
+  const tokensJson =
+    (await getFromKeyring('tokens')) || process.env.GOOGLE_TOKENS || process.env.GMAIL_TOKENS;
   if (!tokensJson) return null;
   try {
     return JSON.parse(tokensJson);
@@ -114,12 +125,12 @@ function createOAuth2Client(credentials: ClientCredentials) {
 export async function getAuthenticatedClient() {
   const credentials = await getClientCredentials();
   if (!credentials) {
-    throw new Error('Not authenticated. Run: gmail auth login');
+    throw new Error('Not authenticated. Run: google auth login');
   }
 
   const tokens = await getTokens();
   if (!tokens) {
-    throw new Error('No tokens found. Run: gmail auth login');
+    throw new Error('No tokens found. Run: google auth login');
   }
 
   const oauth2Client = createOAuth2Client(credentials);
@@ -145,10 +156,13 @@ export async function startAuthFlow(clientId: string, clientSecret: string): Pro
 
   const oauth2Client = createOAuth2Client({ client_id: clientId, client_secret: clientSecret });
 
+  authStateToken = randomBytes(32).toString('hex');
+
   const authUrl = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: SCOPES,
     prompt: 'consent',
+    state: authStateToken,
   });
 
   return new Promise((resolve, reject) => {
@@ -161,6 +175,7 @@ export async function startAuthFlow(clientId: string, clientSecret: string): Pro
 
       const url = new URL(req.url, `http://localhost:${REDIRECT_PORT}`);
       const code = url.searchParams.get('code');
+      const state = url.searchParams.get('state');
       const error = url.searchParams.get('error');
 
       if (error) {
@@ -170,6 +185,16 @@ export async function startAuthFlow(clientId: string, clientSecret: string): Pro
         );
         server.close();
         reject(new Error(`OAuth error: ${error}`));
+        return;
+      }
+
+      if (state !== authStateToken) {
+        res.writeHead(400, { 'Content-Type': 'text/html' });
+        res.end(
+          '<html><body><h1>Invalid state parameter</h1><p>Security validation failed.</p></body></html>'
+        );
+        server.close();
+        reject(new Error('CSRF validation failed: state parameter mismatch'));
         return;
       }
 

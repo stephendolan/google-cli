@@ -1,18 +1,18 @@
-# Gmail CLI
+# Google CLI
 
-A command-line interface for Gmail, designed for developers and AI agents.
+A command-line interface for Google services (Gmail, Calendar), designed for developers and AI agents.
 
 ## Features
 
 - **AI-agent friendly** - JSON output, MCP server support
-- **Read & draft** - Read messages, search, create drafts
-- **No send capability** - Drafts only, cannot send email
+- **Gmail** - Read messages, search, create drafts (no send capability)
+- **Calendar** - Read events, search by date range or query
 - **Secure auth** - OAuth2 with credentials in OS keychain
 
 ## Installation
 
 ```bash
-npm install -g @anthropic-stephen/gmail-cli
+npm install -g @stephendolan/google-cli
 ```
 
 On Linux, install libsecret for keychain support: `sudo apt-get install libsecret-1-dev`
@@ -20,13 +20,13 @@ On Linux, install libsecret for keychain support: `sudo apt-get install libsecre
 ## Setup
 
 1. Create a [Google Cloud project](https://console.cloud.google.com/)
-2. Enable the Gmail API
+2. Enable the Gmail API and Calendar API
 3. Create OAuth2 credentials (Desktop application)
 4. Add `http://localhost:8089/callback` as an authorized redirect URI
 5. Authenticate:
 
 ```bash
-gmail auth login --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET
+google auth login --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET
 ```
 
 ## Commands
@@ -34,35 +34,46 @@ gmail auth login --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET
 ### Authentication
 
 ```bash
-gmail auth login --client-id <id> --client-secret <secret>
-gmail auth status
-gmail auth logout
+google auth login --client-id <id> --client-secret <secret>
+google auth status
+google auth logout
 ```
 
 Or use environment variables:
-- `GMAIL_CLIENT_ID`
-- `GMAIL_CLIENT_SECRET`
-- `GMAIL_TOKENS` (JSON string of OAuth tokens)
+- `GOOGLE_CLIENT_ID` (or `GMAIL_CLIENT_ID` for backwards compatibility)
+- `GOOGLE_CLIENT_SECRET` (or `GMAIL_CLIENT_SECRET` for backwards compatibility)
+- `GOOGLE_TOKENS` (or `GMAIL_TOKENS` for backwards compatibility) - JSON string of OAuth tokens
+
+### Calendar
+
+```bash
+google calendar calendars                    # List all calendars
+google calendar today                        # Today's events
+google calendar week                         # This week's events
+google calendar list --from 2024-01-01 --to 2024-01-31  # Date range
+google calendar search "meeting"             # Search upcoming events
+google calendar event <event-id>             # Get specific event
+```
 
 ### Messages
 
 ```bash
-gmail messages list                           # List recent messages
-gmail messages list --limit 50                # Limit results
-gmail messages list --query "is:unread"       # Filter with Gmail search
-gmail messages list --label INBOX             # Filter by label
+google messages list                         # List recent messages
+google messages list --limit 50              # Limit results
+google messages list --query "is:unread"     # Filter with Gmail search
+google messages list --label INBOX           # Filter by label
 
-gmail messages read <message-id>              # Read a specific message
-gmail messages search "from:boss@example.com" # Search messages
+google messages read <message-id>            # Read a specific message
+google messages search "from:boss@example.com"  # Search messages
 ```
 
 ### Drafts
 
 ```bash
-gmail drafts list                             # List all drafts
-gmail drafts read <draft-id>                  # Read a draft
+google drafts list                           # List all drafts
+google drafts read <draft-id>                # Read a draft
 
-gmail drafts create \
+google drafts create \
   --to recipient@example.com \
   --subject "Hello" \
   --body "Message body"
@@ -71,7 +82,7 @@ gmail drafts create \
 ### Labels
 
 ```bash
-gmail labels list                             # List all labels
+google labels list                           # List all labels
 ```
 
 ### MCP Server
@@ -79,10 +90,12 @@ gmail labels list                             # List all labels
 Run as an MCP server for AI agent integration:
 
 ```bash
-gmail mcp
+google mcp
 ```
 
 ## MCP Tools
+
+### Gmail
 
 | Tool | Description |
 |------|-------------|
@@ -95,29 +108,41 @@ gmail mcp
 | `read_draft` | Read a draft |
 | `create_draft` | Create a draft |
 
+### Calendar
+
+| Tool | Description |
+|------|-------------|
+| `list_calendars` | List all calendars |
+| `calendar_today` | Get today's events |
+| `calendar_week` | Get this week's events |
+| `calendar_events` | Get events in a date range |
+| `calendar_search` | Search upcoming events |
+| `calendar_event` | Get a specific event |
+
 ## Output
 
 All commands output JSON. Use `--compact` or `-c` for single-line output:
 
 ```bash
-gmail messages list                # Pretty-printed JSON
-gmail -c messages list             # Compact JSON
+google messages list                # Pretty-printed JSON
+google -c calendar today            # Compact JSON
 ```
 
 Errors are also returned as JSON:
 
 ```json
-{"error": {"name": "auth_error", "detail": "Not authenticated", "statusCode": 401}, "hint": "Run: gmail auth login"}
+{"error": {"name": "auth_error", "detail": "Not authenticated", "statusCode": 401}, "hint": "Run: google auth login"}
 ```
 
 ## Scopes
 
-This CLI requests the following Gmail API scopes:
+This CLI requests the following scopes for accessing Google APIs:
 
 | Scope | Purpose |
 |-------|---------|
 | `gmail.readonly` | Read messages, labels, threads |
 | `gmail.compose` | Create and modify drafts |
+| `calendar.readonly` | Read calendar events |
 
 **Note:** The `gmail.send` scope is intentionally not requested. This CLI cannot send emails.
 

@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { client } from '../lib/gmail-client.js';
+import { gmailClient } from '../lib/gmail-client.js';
 import { outputJson } from '../lib/output.js';
 import { withErrorHandling } from '../lib/command-utils.js';
 
@@ -12,7 +12,7 @@ export function createDraftsCommand(): Command {
     .option('-l, --limit <n>', 'Maximum number of drafts', '20')
     .action(
       withErrorHandling(async (options) => {
-        const result = await client.listDrafts(Number(options.limit));
+        const result = await gmailClient.listDrafts(Number(options.limit));
         outputJson(result);
       })
     );
@@ -23,7 +23,7 @@ export function createDraftsCommand(): Command {
     .argument('<id>', 'Draft ID')
     .action(
       withErrorHandling(async (id) => {
-        const draft = await client.getDraft(id);
+        const draft = await gmailClient.getDraft(id);
         outputJson(draft);
       })
     );
@@ -38,7 +38,7 @@ export function createDraftsCommand(): Command {
     .option('--bcc <emails>', 'BCC recipients (comma-separated)')
     .action(
       withErrorHandling(async (options) => {
-        const draft = await client.createDraft({
+        const draft = await gmailClient.createDraft({
           to: options.to,
           subject: options.subject,
           body: options.body,

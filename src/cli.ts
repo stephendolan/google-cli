@@ -6,6 +6,7 @@ import { createAuthCommand } from './commands/auth.js';
 import { createMessagesCommand } from './commands/messages.js';
 import { createDraftsCommand } from './commands/drafts.js';
 import { createLabelsCommand } from './commands/labels.js';
+import { createCalendarCommand } from './commands/calendar.js';
 import { createMcpCommand } from './commands/mcp.js';
 
 declare const __VERSION__: string | undefined;
@@ -14,8 +15,8 @@ const version = typeof __VERSION__ !== 'undefined' ? __VERSION__ : '0.0.0-dev';
 const program = new Command();
 
 program
-  .name('gmail')
-  .description('CLI for Gmail - read, search, and draft emails')
+  .name('google')
+  .description('CLI for Google services - Gmail and Calendar')
   .version(version)
   .option('-c, --compact', 'Minified JSON output')
   .hook('preAction', (thisCommand) => {
@@ -27,6 +28,7 @@ program.addCommand(createAuthCommand());
 program.addCommand(createMessagesCommand());
 program.addCommand(createDraftsCommand());
 program.addCommand(createLabelsCommand());
+program.addCommand(createCalendarCommand());
 program.addCommand(createMcpCommand());
 
 program.parseAsync().catch(() => process.exit(1));

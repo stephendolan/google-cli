@@ -85,3 +85,65 @@ export interface CreateDraftParams {
   cc?: string;
   bcc?: string;
 }
+
+// Calendar types
+
+export interface CalendarListEntry {
+  id?: string | null;
+  summary: string;
+  description?: string | null;
+  primary?: boolean | null;
+  backgroundColor?: string | null;
+  foregroundColor?: string | null;
+  accessRole?: string | null;
+  timeZone?: string | null;
+}
+
+export interface CalendarEventDateTime {
+  date?: string | null;
+  dateTime?: string | null;
+  timeZone?: string | null;
+}
+
+export interface CalendarEventAttendee {
+  email?: string | null;
+  displayName?: string | null;
+  responseStatus?: string | null;
+  self?: boolean | null;
+  organizer?: boolean | null;
+}
+
+export interface CalendarEvent {
+  id?: string | null;
+  summary?: string | null;
+  description?: string | null;
+  location?: string | null;
+  start?: CalendarEventDateTime;
+  end?: CalendarEventDateTime;
+  status?: string | null;
+  htmlLink?: string | null;
+  created?: string | null;
+  updated?: string | null;
+  creator?: { email?: string | null; displayName?: string | null } | null;
+  organizer?: { email?: string | null; displayName?: string | null } | null;
+  attendees?: CalendarEventAttendee[];
+  recurringEventId?: string | null;
+  hangoutLink?: string | null;
+  conferenceData?: {
+    entryPoints?: Array<{ entryPointType?: string | null; uri?: string | null }>;
+  } | null;
+}
+
+export interface ParsedCalendarEvent {
+  id: string;
+  summary?: string;
+  description?: string;
+  location?: string;
+  start?: string;
+  end?: string;
+  isAllDay: boolean;
+  status?: string;
+  htmlLink?: string;
+  attendees?: Array<{ email?: string | null; name?: string; status?: string }>;
+  meetingLink?: string;
+}

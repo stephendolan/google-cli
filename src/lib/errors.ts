@@ -1,9 +1,9 @@
 import { outputJson } from './output.js';
 
-export class GmailCliError extends Error {
+export class GoogleCliError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'GmailCliError';
+    this.name = 'GoogleCliError';
   }
 }
 
@@ -21,7 +21,7 @@ export function handleError(error: unknown): never {
   let statusCode = 1;
   let hint: string | undefined;
 
-  if (error instanceof GmailCliError) {
+  if (error instanceof GoogleCliError) {
     name = 'cli_error';
     detail = sanitizeErrorMessage(error.message);
   } else if (error instanceof Error) {
@@ -29,7 +29,7 @@ export function handleError(error: unknown): never {
 
     if (error.message.includes('Not authenticated') || error.message.includes('No tokens')) {
       name = 'auth_error';
-      hint = 'Run: gmail auth login';
+      hint = 'Run: google auth login';
       statusCode = 401;
     }
   }
