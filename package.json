@@ -1,5 +1,5 @@
 {
-  "name": "@anthropic-stephen/gmail-cli",
+  "name": "@stephendolan/gmail-cli",
   "version": "0.1.0",
   "description": "CLI for Gmail with MCP support - read, search, and draft emails",
   "type": "module",
