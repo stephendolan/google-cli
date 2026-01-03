@@ -4,6 +4,7 @@ import { Command } from 'commander';
 import { setOutputOptions } from './lib/output.js';
 import { createAuthCommand } from './commands/auth.js';
 import { createMessagesCommand } from './commands/messages.js';
+import { createInboxCommand } from './commands/inbox.js';
 import { createDraftsCommand } from './commands/drafts.js';
 import { createLabelsCommand } from './commands/labels.js';
 import { createCalendarCommand } from './commands/calendar.js';
@@ -26,6 +27,7 @@ program
 
 program.addCommand(createAuthCommand());
 program.addCommand(createMessagesCommand());
+program.addCommand(createInboxCommand());
 program.addCommand(createDraftsCommand());
 program.addCommand(createLabelsCommand());
 program.addCommand(createCalendarCommand());
