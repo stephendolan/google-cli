@@ -6,6 +6,7 @@ export interface MessageHeader {
 export interface MessagePartBody {
   size: number;
   data?: string;
+  attachmentId?: string;
 }
 
 export interface MessagePart {
@@ -66,6 +67,14 @@ export interface Label {
   threadsUnread?: number;
 }
 
+export interface MessageAttachment {
+  partId: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  attachmentId?: string;
+}
+
 export interface ParsedMessage {
   id: string;
   threadId: string;
@@ -76,6 +85,7 @@ export interface ParsedMessage {
   snippet?: string;
   body?: string;
   labels?: string[];
+  attachments?: MessageAttachment[];
 }
 
 export interface CreateDraftParams {

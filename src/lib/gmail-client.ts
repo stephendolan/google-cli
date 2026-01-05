@@ -4,6 +4,8 @@ import { GoogleCliError } from './errors.js';
 import type {
   Message,
   MessageList,
+  MessagePart,
+  MessageAttachment,
   Draft,
   DraftList,
   Label,
@@ -11,9 +13,9 @@ import type {
   CreateDraftParams,
 } from '../types/index.js';
 
-function decodeBase64Url(data: string): string {
+export function decodeBase64Url(data: string): Buffer {
   const base64 = data.replace(/-/g, '+').replace(/_/g, '/');
-  return Buffer.from(base64, 'base64').toString('utf-8');
+  return Buffer.from(base64, 'base64');
 }
 
 function encodeBase64Url(data: string): string {
@@ -35,18 +37,18 @@ function extractTextBody(message: Message): string | undefined {
   if (!payload) return undefined;
 
   if (payload.body?.data) {
-    return decodeBase64Url(payload.body.data);
+    return decodeBase64Url(payload.body.data).toString('utf-8');
   }
 
   if (payload.parts) {
     for (const part of payload.parts) {
       if (part.mimeType === 'text/plain' && part.body?.data) {
-        return decodeBase64Url(part.body.data);
+        return decodeBase64Url(part.body.data).toString('utf-8');
       }
     }
     for (const part of payload.parts) {
       if (part.mimeType === 'text/html' && part.body?.data) {
-        return decodeBase64Url(part.body.data);
+        return decodeBase64Url(part.body.data).toString('utf-8');
       }
     }
   }
@@ -54,7 +56,35 @@ function extractTextBody(message: Message): string | undefined {
   return undefined;
 }
 
+function extractAttachments(payload: MessagePart | undefined): MessageAttachment[] {
+  if (!payload) return [];
+
+  const attachments: MessageAttachment[] = [];
+
+  function traverse(part: MessagePart): void {
+    if (part.filename && part.filename.length > 0) {
+      attachments.push({
+        partId: part.partId ?? '',
+        filename: part.filename,
+        mimeType: part.mimeType ?? 'application/octet-stream',
+        size: part.body?.size ?? 0,
+        attachmentId: part.body?.attachmentId,
+      });
+    }
+
+    if (part.parts) {
+      for (const subPart of part.parts) {
+        traverse(subPart);
+      }
+    }
+  }
+
+  traverse(payload);
+  return attachments;
+}
+
 function parseMessage(message: Message): ParsedMessage {
+  const attachments = extractAttachments(message.payload);
   return {
     id: message.id,
     threadId: message.threadId,
@@ -65,6 +95,7 @@ function parseMessage(message: Message): ParsedMessage {
     snippet: message.snippet,
     body: extractTextBody(message),
     labels: message.labelIds,
+    attachments: attachments.length > 0 ? attachments : undefined,
   };
 }
 
@@ -190,6 +221,23 @@ export class GmailClient {
     });
 
     return response.data as Draft;
+  }
+
+  async getAttachment(
+    messageId: string,
+    attachmentId: string
+  ): Promise<{ data: string; size: number }> {
+    const gmail = await this.getGmail();
+    const response = await gmail.users.messages.attachments.get({
+      userId: 'me',
+      messageId,
+      id: attachmentId,
+    });
+
+    return {
+      data: response.data.data ?? '',
+      size: response.data.size ?? 0,
+    };
   }
 }
 

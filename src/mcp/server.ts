@@ -140,6 +140,23 @@ server.tool(
   }
 );
 
+server.tool(
+  'get_attachment',
+  'Download an attachment from an email message',
+  {
+    messageId: z.string().describe('Message ID'),
+    attachmentId: z.string().describe('Attachment ID (from message attachments list)'),
+  },
+  async ({ messageId, attachmentId }) => {
+    try {
+      const attachment = await gmailClient.getAttachment(messageId, attachmentId);
+      return jsonResponse(attachment);
+    } catch (e) {
+      return errorResponse(e);
+    }
+  }
+);
+
 // Calendar tools
 
 server.tool('list_calendars', 'List all Google calendars', {}, async () => {
