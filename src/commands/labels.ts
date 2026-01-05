@@ -1,7 +1,11 @@
 import { Command } from 'commander';
-import { gmailClient } from '../lib/gmail-client.js';
+import { getGmailClient } from '../lib/gmail-client.js';
 import { outputJson } from '../lib/output.js';
 import { withErrorHandling } from '../lib/command-utils.js';
+
+function getProfile(cmd: Command): string | undefined {
+  return cmd.parent?.parent?.opts()?.profile;
+}
 
 export function createLabelsCommand(): Command {
   const cmd = new Command('labels').description('Label operations');
@@ -10,8 +14,9 @@ export function createLabelsCommand(): Command {
     .command('list')
     .description('List all labels')
     .action(
-      withErrorHandling(async () => {
-        const labels = await gmailClient.listLabels();
+      withErrorHandling(async function (this: Command) {
+        const client = getGmailClient(getProfile(this));
+        const labels = await client.listLabels();
         outputJson(labels);
       })
     );

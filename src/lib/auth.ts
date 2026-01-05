@@ -2,6 +2,12 @@ import { google } from 'googleapis';
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import open from 'open';
+import {
+  getActiveProfile,
+  addProfile,
+  validateProfileName,
+  profileExists,
+} from './config.js';
 
 const SERVICE = 'google-cli';
 const REDIRECT_PORT = 8089;
@@ -13,6 +19,7 @@ const SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/gmail.compose',
   'https://www.googleapis.com/auth/calendar.readonly',
+  'https://www.googleapis.com/auth/userinfo.email',
 ];
 
 interface Tokens {
@@ -36,6 +43,10 @@ async function getKeyring(): Promise<typeof import('@napi-rs/keyring') | null> {
   } catch {
     return null;
   }
+}
+
+function profileKey(profile: string, key: string): string {
+  return `profile:${profile}:${key}`;
 }
 
 async function getFromKeyring(account: string): Promise<string | null> {
@@ -72,28 +83,75 @@ async function deleteFromKeyring(account: string): Promise<boolean> {
   }
 }
 
-export async function getClientCredentials(): Promise<ClientCredentials | null> {
+async function migrateOldCredentials(): Promise<boolean> {
+  const oldClientId = await getFromKeyring('client_id');
+  const oldClientSecret = await getFromKeyring('client_secret');
+  const oldTokens = await getFromKeyring('tokens');
+
+  if (!oldClientId && !oldClientSecret && !oldTokens) {
+    return false;
+  }
+
+  if (oldClientId) {
+    await setInKeyring(profileKey('default', 'client_id'), oldClientId);
+    await deleteFromKeyring('client_id');
+  }
+  if (oldClientSecret) {
+    await setInKeyring(profileKey('default', 'client_secret'), oldClientSecret);
+    await deleteFromKeyring('client_secret');
+  }
+  if (oldTokens) {
+    await setInKeyring(profileKey('default', 'tokens'), oldTokens);
+    await deleteFromKeyring('tokens');
+  }
+
+  if (!profileExists('default')) {
+    addProfile('default');
+  }
+
+  return true;
+}
+
+export async function getClientCredentials(profile?: string): Promise<ClientCredentials | null> {
+  const p = profile ?? getActiveProfile();
+  validateProfileName(p);
+
+  await migrateOldCredentials();
+
   const clientId =
-    (await getFromKeyring('client_id')) ||
-    process.env.GOOGLE_CLIENT_ID ||
-    process.env.GMAIL_CLIENT_ID;
+    (await getFromKeyring(profileKey(p, 'client_id'))) ||
+    (p === 'default' && (process.env.GOOGLE_CLIENT_ID || process.env.GMAIL_CLIENT_ID)) ||
+    null;
   const clientSecret =
-    (await getFromKeyring('client_secret')) ||
-    process.env.GOOGLE_CLIENT_SECRET ||
-    process.env.GMAIL_CLIENT_SECRET;
+    (await getFromKeyring(profileKey(p, 'client_secret'))) ||
+    (p === 'default' && (process.env.GOOGLE_CLIENT_SECRET || process.env.GMAIL_CLIENT_SECRET)) ||
+    null;
 
   if (!clientId || !clientSecret) return null;
   return { client_id: clientId, client_secret: clientSecret };
 }
 
-export async function setClientCredentials(clientId: string, clientSecret: string): Promise<void> {
-  await setInKeyring('client_id', clientId);
-  await setInKeyring('client_secret', clientSecret);
+export async function setClientCredentials(
+  clientId: string,
+  clientSecret: string,
+  profile?: string
+): Promise<void> {
+  const p = profile ?? getActiveProfile();
+  validateProfileName(p);
+  await setInKeyring(profileKey(p, 'client_id'), clientId);
+  await setInKeyring(profileKey(p, 'client_secret'), clientSecret);
 }
 
-export async function getTokens(): Promise<Tokens | null> {
+export async function getTokens(profile?: string): Promise<Tokens | null> {
+  const p = profile ?? getActiveProfile();
+  validateProfileName(p);
+
+  await migrateOldCredentials();
+
   const tokensJson =
-    (await getFromKeyring('tokens')) || process.env.GOOGLE_TOKENS || process.env.GMAIL_TOKENS;
+    (await getFromKeyring(profileKey(p, 'tokens'))) ||
+    (p === 'default' && (process.env.GOOGLE_TOKENS || process.env.GMAIL_TOKENS)) ||
+    null;
   if (!tokensJson) return null;
   try {
     return JSON.parse(tokensJson);
@@ -102,35 +160,46 @@ export async function getTokens(): Promise<Tokens | null> {
   }
 }
 
-export async function setTokens(tokens: Tokens): Promise<void> {
-  await setInKeyring('tokens', JSON.stringify(tokens));
+export async function setTokens(tokens: Tokens, profile?: string): Promise<void> {
+  const p = profile ?? getActiveProfile();
+  validateProfileName(p);
+  await setInKeyring(profileKey(p, 'tokens'), JSON.stringify(tokens));
 }
 
-export async function isAuthenticated(): Promise<boolean> {
-  const creds = await getClientCredentials();
-  const tokens = await getTokens();
+export async function isAuthenticated(profile?: string): Promise<boolean> {
+  const p = profile ?? getActiveProfile();
+  const creds = await getClientCredentials(p);
+  const tokens = await getTokens(p);
   return creds !== null && tokens !== null;
 }
 
-export async function logout(): Promise<void> {
-  await deleteFromKeyring('client_id');
-  await deleteFromKeyring('client_secret');
-  await deleteFromKeyring('tokens');
+export async function logout(profile?: string): Promise<void> {
+  const p = profile ?? getActiveProfile();
+  validateProfileName(p);
+  await deleteFromKeyring(profileKey(p, 'tokens'));
+}
+
+export async function deleteProfileCredentials(profile: string): Promise<void> {
+  validateProfileName(profile);
+  await deleteFromKeyring(profileKey(profile, 'client_id'));
+  await deleteFromKeyring(profileKey(profile, 'client_secret'));
+  await deleteFromKeyring(profileKey(profile, 'tokens'));
 }
 
 function createOAuth2Client(credentials: ClientCredentials) {
   return new google.auth.OAuth2(credentials.client_id, credentials.client_secret, REDIRECT_URI);
 }
 
-export async function getAuthenticatedClient() {
-  const credentials = await getClientCredentials();
+export async function getAuthenticatedClient(profile?: string) {
+  const p = profile ?? getActiveProfile();
+  const credentials = await getClientCredentials(p);
   if (!credentials) {
-    throw new Error('Not authenticated. Run: google auth login');
+    throw new Error(`Profile '${p}' not authenticated. Run: google auth login --profile ${p}`);
   }
 
-  const tokens = await getTokens();
+  const tokens = await getTokens(p);
   if (!tokens) {
-    throw new Error('No tokens found. Run: google auth login');
+    throw new Error(`No tokens found for profile '${p}'. Run: google auth login --profile ${p}`);
   }
 
   const oauth2Client = createOAuth2Client(credentials);
@@ -138,21 +207,38 @@ export async function getAuthenticatedClient() {
 
   oauth2Client.on('tokens', async (newTokens) => {
     if (newTokens.access_token) {
-      const existingTokens = await getTokens();
+      const existingTokens = await getTokens(p);
       const merged: Tokens = {
         access_token: newTokens.access_token,
         refresh_token: newTokens.refresh_token ?? existingTokens?.refresh_token,
         expiry_date: newTokens.expiry_date ?? existingTokens?.expiry_date,
       };
-      await setTokens(merged);
+      await setTokens(merged, p);
     }
   });
 
   return oauth2Client;
 }
 
-export async function startAuthFlow(clientId: string, clientSecret: string): Promise<void> {
-  await setClientCredentials(clientId, clientSecret);
+async function fetchUserEmail(oauth2Client: ReturnType<typeof createOAuth2Client>): Promise<string | null> {
+  try {
+    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+    const response = await oauth2.userinfo.get();
+    return response.data.email ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function startAuthFlow(
+  clientId: string,
+  clientSecret: string,
+  profile?: string
+): Promise<void> {
+  const p = profile ?? 'default';
+  validateProfileName(p);
+
+  await setClientCredentials(clientId, clientSecret, p);
 
   const oauth2Client = createOAuth2Client({ client_id: clientId, client_secret: clientSecret });
 
@@ -211,15 +297,23 @@ export async function startAuthFlow(clientId: string, clientSecret: string): Pro
         if (!tokens.access_token) {
           throw new Error('No access token received');
         }
-        await setTokens({
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token ?? undefined,
-          expiry_date: tokens.expiry_date ?? undefined,
-        });
+        await setTokens(
+          {
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token ?? undefined,
+            expiry_date: tokens.expiry_date ?? undefined,
+          },
+          p
+        );
+
+        oauth2Client.setCredentials(tokens);
+        const email = await fetchUserEmail(oauth2Client);
+
+        addProfile(p, email ?? undefined);
 
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.end(
-          '<html><body><h1>Authentication successful!</h1><p>You can close this window and return to the terminal.</p></body></html>'
+          `<html><body><h1>Authentication successful!</h1><p>Profile '${p}' is now active.${email ? ` Logged in as ${email}.` : ''}</p><p>You can close this window and return to the terminal.</p></body></html>`
         );
         server.close();
         resolve();

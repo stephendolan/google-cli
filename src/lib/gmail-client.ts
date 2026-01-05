@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
 import { getAuthenticatedClient } from './auth.js';
+import { getActiveProfile } from './config.js';
 import { GoogleCliError } from './errors.js';
 import type {
   Message,
@@ -131,11 +132,16 @@ function createRawEmail(params: CreateDraftParams): string {
 
 export class GmailClient {
   private gmail: ReturnType<typeof google.gmail> | null = null;
+  private profile: string | undefined;
+
+  constructor(profile?: string) {
+    this.profile = profile;
+  }
 
   private async getGmail() {
     if (this.gmail) return this.gmail;
 
-    const auth = await getAuthenticatedClient();
+    const auth = await getAuthenticatedClient(this.profile);
     this.gmail = google.gmail({ version: 'v1', auth });
     return this.gmail;
   }
@@ -241,4 +247,28 @@ export class GmailClient {
   }
 }
 
-export const gmailClient = new GmailClient();
+const clientCache = new Map<string, GmailClient>();
+
+export function getGmailClient(profile?: string): GmailClient {
+  const p = profile ?? getActiveProfile();
+  if (!clientCache.has(p)) {
+    clientCache.set(p, new GmailClient(p));
+  }
+  return clientCache.get(p)!;
+}
+
+// Backward compatibility: default client uses active profile
+export const gmailClient = {
+  listMessages: (options?: Parameters<GmailClient['listMessages']>[0]) =>
+    getGmailClient().listMessages(options),
+  getMessage: (id: string, format?: 'full' | 'metadata' | 'minimal') =>
+    getGmailClient().getMessage(id, format),
+  searchMessages: (query: string, maxResults?: number) =>
+    getGmailClient().searchMessages(query, maxResults),
+  listLabels: () => getGmailClient().listLabels(),
+  listDrafts: (maxResults?: number) => getGmailClient().listDrafts(maxResults),
+  getDraft: (id: string) => getGmailClient().getDraft(id),
+  createDraft: (params: CreateDraftParams) => getGmailClient().createDraft(params),
+  getAttachment: (messageId: string, attachmentId: string) =>
+    getGmailClient().getAttachment(messageId, attachmentId),
+};

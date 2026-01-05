@@ -4,6 +4,13 @@ import { z } from 'zod';
 import { gmailClient } from '../lib/gmail-client.js';
 import { calendarClient } from '../lib/calendar-client.js';
 import { isAuthenticated } from '../lib/auth.js';
+import {
+  getActiveProfile,
+  setActiveProfile,
+  listProfiles,
+  getProfileEmail,
+  profileExists,
+} from '../lib/config.js';
 
 const server = new McpServer({
   name: 'google',
@@ -23,12 +30,67 @@ function errorResponse(error: unknown): ToolResponse {
 
 server.tool('check_auth', 'Check if Google CLI is authenticated', {}, async () => {
   try {
-    const authenticated = await isAuthenticated();
-    return jsonResponse({ authenticated });
+    const profile = getActiveProfile();
+    const authenticated = await isAuthenticated(profile);
+    const email = getProfileEmail(profile);
+    return jsonResponse({ authenticated, profile, email: email ?? undefined });
   } catch (e) {
     return errorResponse(e);
   }
 });
+
+// Profile management tools
+
+server.tool('current_profile', 'Get the currently active profile', {}, async () => {
+  try {
+    const profile = getActiveProfile();
+    const email = getProfileEmail(profile);
+    const authenticated = await isAuthenticated(profile);
+    return jsonResponse({ profile, email: email ?? undefined, authenticated });
+  } catch (e) {
+    return errorResponse(e);
+  }
+});
+
+server.tool(
+  'switch_profile',
+  'Switch to a different profile (persists to config)',
+  {
+    profile: z.string().describe('Profile name to switch to'),
+  },
+  async ({ profile }) => {
+    try {
+      if (!profileExists(profile)) {
+        return jsonResponse({ error: { name: 'profile_not_found', detail: `Profile '${profile}' not found` } });
+      }
+      setActiveProfile(profile);
+      const email = getProfileEmail(profile);
+      return jsonResponse({ switched: true, profile, email: email ?? undefined });
+    } catch (e) {
+      return errorResponse(e);
+    }
+  }
+);
+
+server.tool('list_profiles', 'List all configured profiles', {}, async () => {
+  try {
+    const profiles = listProfiles();
+    const active = getActiveProfile();
+    const result = await Promise.all(
+      profiles.map(async (name) => ({
+        name,
+        email: getProfileEmail(name) ?? undefined,
+        authenticated: await isAuthenticated(name),
+        active: name === active,
+      }))
+    );
+    return jsonResponse({ profiles: result, active });
+  } catch (e) {
+    return errorResponse(e);
+  }
+});
+
+// Gmail tools
 
 server.tool(
   'list_messages',

@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
 import { getAuthenticatedClient } from './auth.js';
+import { getActiveProfile } from './config.js';
 import type { CalendarListEntry, CalendarEvent, ParsedCalendarEvent } from '../types/index.js';
 
 function parseEvent(event: CalendarEvent): ParsedCalendarEvent {
@@ -33,11 +34,16 @@ function parseEvent(event: CalendarEvent): ParsedCalendarEvent {
 
 export class CalendarClient {
   private calendar: ReturnType<typeof google.calendar> | null = null;
+  private profile: string | undefined;
+
+  constructor(profile?: string) {
+    this.profile = profile;
+  }
 
   private async getCalendar() {
     if (this.calendar) return this.calendar;
 
-    const auth = await getAuthenticatedClient();
+    const auth = await getAuthenticatedClient(this.profile);
     this.calendar = google.calendar({ version: 'v3', auth });
     return this.calendar;
   }
@@ -124,4 +130,25 @@ export class CalendarClient {
   }
 }
 
-export const calendarClient = new CalendarClient();
+const clientCache = new Map<string, CalendarClient>();
+
+export function getCalendarClient(profile?: string): CalendarClient {
+  const p = profile ?? getActiveProfile();
+  if (!clientCache.has(p)) {
+    clientCache.set(p, new CalendarClient(p));
+  }
+  return clientCache.get(p)!;
+}
+
+// Backward compatibility: default client uses active profile
+export const calendarClient = {
+  listCalendars: () => getCalendarClient().listCalendars(),
+  getEvent: (eventId: string, calendarId?: string) =>
+    getCalendarClient().getEvent(eventId, calendarId),
+  getEventsToday: (calendarId?: string) => getCalendarClient().getEventsToday(calendarId),
+  getEventsThisWeek: (calendarId?: string) => getCalendarClient().getEventsThisWeek(calendarId),
+  getEventsInRange: (timeMin: string, timeMax: string, calendarId?: string) =>
+    getCalendarClient().getEventsInRange(timeMin, timeMax, calendarId),
+  searchEvents: (query: string, options?: { calendarId?: string; maxResults?: number }) =>
+    getCalendarClient().searchEvents(query, options),
+};
