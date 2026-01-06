@@ -39,7 +39,9 @@
     "bun": ">=1.0.0"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "keywords": [
     "gmail",
@@ -49,5 +51,14 @@
     "mcp",
     "email"
   ],
-  "license": "MIT"
+  "author": "Stephen Dolan",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stephendolan/google-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/stephendolan/google-cli/issues"
+  },
+  "homepage": "https://github.com/stephendolan/google-cli#readme"
 }
