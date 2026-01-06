@@ -8,7 +8,11 @@ export default defineConfig({
   format: ['esm'],
   target: 'node18',
   clean: true,
+  shims: false,
+  outDir: 'dist',
+  dts: false,
   sourcemap: true,
+  minify: false,
   define: {
     __VERSION__: JSON.stringify(packageJson.version),
   },

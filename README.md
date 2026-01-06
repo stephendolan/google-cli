@@ -1,21 +1,32 @@
 # Google CLI
 
-A command-line interface for Google services (Gmail, Calendar), designed for developers and AI agents.
+[![npm version](https://img.shields.io/npm/v/@stephendolan/google-cli.svg)](https://www.npmjs.com/package/@stephendolan/google-cli)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Features
-
-- **AI-agent friendly** - JSON output, MCP server support
-- **Gmail** - Read messages, search, create drafts (no send capability)
-- **Calendar** - Read events, search by date range or query
-- **Secure auth** - OAuth2 with credentials in OS keychain
+A command-line interface for Google services (Gmail, Calendar) designed for LLMs and developers. JSON output by default.
 
 ## Installation
 
+Requires [Bun](https://bun.sh).
+
 ```bash
-npm install -g @stephendolan/google-cli
+bun install -g @stephendolan/google-cli
+
+# Or run without installing
+bunx @stephendolan/google-cli auth status
 ```
 
-On Linux, install libsecret for keychain support: `sudo apt-get install libsecret-1-dev`
+<details>
+<summary>Linux: requires libsecret for keychain storage</summary>
+
+```bash
+sudo apt-get install libsecret-1-dev  # Ubuntu/Debian
+sudo dnf install libsecret-devel      # Fedora/RHEL
+sudo pacman -S libsecret              # Arch
+```
+
+Without libsecret, use environment variables instead.
+</details>
 
 ## Setup
 

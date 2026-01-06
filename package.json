@@ -1,7 +1,7 @@
 {
   "name": "@stephendolan/google-cli",
-  "version": "0.2.0",
-  "description": "CLI for Google services (Gmail, Calendar) with MCP support",
+  "version": "1.0.0",
+  "description": "A command-line interface for Google services (Gmail, Calendar)",
   "type": "module",
   "main": "./dist/cli.js",
   "bin": {
@@ -11,14 +11,40 @@
     "dev": "bun run src/cli.ts",
     "build": "bun run tsup",
     "test": "bun run vitest",
-    "lint": "oxlint src",
-    "format": "biome format --write src",
-    "format:check": "biome format src",
+    "lint": "bun run oxlint src",
+    "format": "bun run biome format --write src",
+    "format:check": "bun run biome format src",
     "typecheck": "bun run tsc --noEmit",
     "link": "bun run build && bun link",
     "start": "bun dist/cli.js",
     "prepublishOnly": "bun run build"
   },
+  "keywords": [
+    "gmail",
+    "calendar",
+    "google",
+    "cli",
+    "mcp",
+    "email",
+    "command-line",
+    "llm",
+    "ai-friendly"
+  ],
+  "author": "Stephen Dolan <https://github.com/stephendolan>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stephendolan/google-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/stephendolan/google-cli/issues"
+  },
+  "homepage": "https://github.com/stephendolan/google-cli#readme",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
     "@napi-rs/keyring": "^1.2.0",
@@ -28,37 +54,15 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^1.9.0",
+    "@biomejs/biome": "^1.9.4",
     "@types/bun": "latest",
     "oxlint": "^0.16.0",
     "tsup": "^8.0.0",
-    "typescript": "^5.0.0",
-    "vitest": "^3.0.0"
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0",
+    "vitest": "^4.0.4"
   },
   "engines": {
     "bun": ">=1.0.0"
-  },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
-  "keywords": [
-    "gmail",
-    "calendar",
-    "google",
-    "cli",
-    "mcp",
-    "email"
-  ],
-  "author": "Stephen Dolan",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/stephendolan/google-cli.git"
-  },
-  "bugs": {
-    "url": "https://github.com/stephendolan/google-cli/issues"
-  },
-  "homepage": "https://github.com/stephendolan/google-cli#readme"
+  }
 }
