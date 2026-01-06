@@ -37,12 +37,16 @@ google auth login --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET
 google auth login --client-id <id> --client-secret <secret>
 google auth status
 google auth logout
+google auth current                             # Show active profile
+google auth list                                # List all profiles
+google auth switch <name>                       # Switch to profile
+google auth delete <name>                       # Delete a profile
 ```
 
 Or use environment variables:
-- `GOOGLE_CLIENT_ID` (or `GMAIL_CLIENT_ID` for backwards compatibility)
-- `GOOGLE_CLIENT_SECRET` (or `GMAIL_CLIENT_SECRET` for backwards compatibility)
-- `GOOGLE_TOKENS` (or `GMAIL_TOKENS` for backwards compatibility) - JSON string of OAuth tokens
+- `GOOGLE_CLIENT_ID` (or `GMAIL_CLIENT_ID`)
+- `GOOGLE_CLIENT_SECRET` (or `GMAIL_CLIENT_SECRET`)
+- `GOOGLE_TOKENS` (or `GMAIL_TOKENS`) - JSON string of OAuth tokens
 
 ### Calendar
 
@@ -64,7 +68,18 @@ google messages list --query "is:unread"     # Filter with Gmail search
 google messages list --label INBOX           # Filter by label
 
 google messages read <message-id>            # Read a specific message
+google messages read <id> --format full      # Full/metadata/minimal format
 google messages search "from:boss@example.com"  # Search messages
+google messages attachment <msg-id> <att-id>   # Download attachment
+google messages attachment <msg-id> <att-id> -o file.pdf  # Save to file
+```
+
+### Inbox
+
+```bash
+google inbox list                            # List inbox messages
+google inbox list --unread                   # Only unread messages
+google inbox search <query>                  # Search within inbox
 ```
 
 ### Drafts
@@ -107,6 +122,10 @@ google mcp
 | `list_drafts` | List drafts |
 | `read_draft` | Read a draft |
 | `create_draft` | Create a draft |
+| `get_attachment` | Download attachment |
+| `current_profile` | Get active profile |
+| `switch_profile` | Switch to profile |
+| `list_profiles` | List all profiles |
 
 ### Calendar
 
@@ -136,7 +155,7 @@ Errors are also returned as JSON:
 
 ## Scopes
 
-This CLI requests the following scopes for accessing Google APIs:
+Required Google API scopes:
 
 | Scope | Purpose |
 |-------|---------|
