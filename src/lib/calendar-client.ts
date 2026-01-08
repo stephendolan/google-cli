@@ -54,7 +54,7 @@ export class CalendarClient {
     return (response.data.items ?? []) as CalendarListEntry[];
   }
 
-  private async fetchEvents(
+  private async fetchEventsFromCalendar(
     calendarId: string,
     timeMin: string,
     timeMax: string,
@@ -74,6 +74,38 @@ export class CalendarClient {
     return (response.data.items ?? []).map(parseEvent);
   }
 
+  private async fetchEvents(
+    calendarId: string | undefined,
+    timeMin: string,
+    timeMax: string,
+    maxResults?: number,
+    query?: string
+  ): Promise<ParsedCalendarEvent[]> {
+    // If specific calendar requested, use it
+    if (calendarId) {
+      return this.fetchEventsFromCalendar(calendarId, timeMin, timeMax, maxResults, query);
+    }
+
+    // Otherwise, fetch from all selected calendars and merge
+    const calendars = await this.listCalendars();
+    const selectedCalendars = calendars.filter((c) => c.selected);
+
+    const allEvents = await Promise.all(
+      selectedCalendars.map((c) =>
+        this.fetchEventsFromCalendar(c.id!, timeMin, timeMax, maxResults, query)
+      )
+    );
+
+    // Flatten and sort by start time
+    return allEvents
+      .flat()
+      .sort((a, b) => {
+        const aStart = a.start ?? '';
+        const bStart = b.start ?? '';
+        return aStart.localeCompare(bStart);
+      });
+  }
+
   async getEvent(eventId: string, calendarId = 'primary'): Promise<ParsedCalendarEvent> {
     const calendar = await this.getCalendar();
     const response = await calendar.events.get({
@@ -83,7 +115,7 @@ export class CalendarClient {
     return parseEvent(response.data as CalendarEvent);
   }
 
-  async getEventsToday(calendarId = 'primary'): Promise<ParsedCalendarEvent[]> {
+  async getEventsToday(calendarId?: string): Promise<ParsedCalendarEvent[]> {
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const endOfDay = new Date(startOfDay);
@@ -92,7 +124,7 @@ export class CalendarClient {
     return this.fetchEvents(calendarId, startOfDay.toISOString(), endOfDay.toISOString());
   }
 
-  async getEventsThisWeek(calendarId = 'primary'): Promise<ParsedCalendarEvent[]> {
+  async getEventsThisWeek(calendarId?: string): Promise<ParsedCalendarEvent[]> {
     const now = new Date();
     const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const dayOfWeek = startOfWeek.getDay();
@@ -107,7 +139,7 @@ export class CalendarClient {
   async getEventsInRange(
     timeMin: string,
     timeMax: string,
-    calendarId = 'primary'
+    calendarId?: string
   ): Promise<ParsedCalendarEvent[]> {
     return this.fetchEvents(calendarId, timeMin, timeMax);
   }
@@ -121,7 +153,7 @@ export class CalendarClient {
     oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
 
     return this.fetchEvents(
-      options.calendarId ?? 'primary',
+      options.calendarId,
       now.toISOString(),
       oneYearFromNow.toISOString(),
       options.maxResults,
