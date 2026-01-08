@@ -75,7 +75,7 @@ export class CalendarClient {
   }
 
   private async fetchEvents(
-    calendarId: string | undefined,
+    calendarId?: string,
     timeMin: string,
     timeMax: string,
     maxResults?: number,
