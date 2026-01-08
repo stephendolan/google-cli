@@ -7,6 +7,7 @@ import {
   addProfile,
   validateProfileName,
   profileExists,
+  getProfileEmail,
 } from './config.js';
 
 const SERVICE = 'google-cli';
@@ -148,9 +149,12 @@ export async function getTokens(profile?: string): Promise<Tokens | null> {
 
   await migrateOldCredentials();
 
+  // Only fall back to env vars for 'default' profile with no email configured
+  // (i.e., user hasn't run auth login yet). Once email is set, use keyring only.
+  const shouldFallbackToEnv = p === 'default' && !getProfileEmail(p);
   const tokensJson =
     (await getFromKeyring(profileKey(p, 'tokens'))) ||
-    (p === 'default' && (process.env.GOOGLE_TOKENS || process.env.GMAIL_TOKENS)) ||
+    (shouldFallbackToEnv && (process.env.GOOGLE_TOKENS || process.env.GMAIL_TOKENS)) ||
     null;
   if (!tokensJson) return null;
   try {
