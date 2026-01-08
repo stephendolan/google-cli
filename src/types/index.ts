@@ -103,6 +103,7 @@ export interface CalendarListEntry {
   summary: string;
   description?: string | null;
   primary?: boolean | null;
+  selected?: boolean | null;
   backgroundColor?: string | null;
   foregroundColor?: string | null;
   accessRole?: string | null;
