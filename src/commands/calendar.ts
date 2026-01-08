@@ -24,7 +24,7 @@ export function createCalendarCommand(): Command {
   calendar
     .command('today')
     .description("List today's events")
-    .option('--calendar <id>', 'Calendar ID (default: primary)')
+    .option('--calendar <id>', 'Calendar ID (default: all selected calendars)')
     .action(
       withErrorHandling(async function (this: Command, options) {
         const client = getCalendarClient(getProfile(this));
@@ -36,7 +36,7 @@ export function createCalendarCommand(): Command {
   calendar
     .command('week')
     .description("List this week's events")
-    .option('--calendar <id>', 'Calendar ID (default: primary)')
+    .option('--calendar <id>', 'Calendar ID (default: all selected calendars)')
     .action(
       withErrorHandling(async function (this: Command, options) {
         const client = getCalendarClient(getProfile(this));
@@ -50,7 +50,7 @@ export function createCalendarCommand(): Command {
     .description('List events in a date range')
     .requiredOption('--from <date>', 'Start date (ISO 8601)')
     .requiredOption('--to <date>', 'End date (ISO 8601)')
-    .option('--calendar <id>', 'Calendar ID (default: primary)')
+    .option('--calendar <id>', 'Calendar ID (default: all selected calendars)')
     .action(
       withErrorHandling(async function (this: Command, options) {
         const client = getCalendarClient(getProfile(this));
@@ -66,7 +66,7 @@ export function createCalendarCommand(): Command {
   calendar
     .command('search <query>')
     .description('Search upcoming events')
-    .option('--calendar <id>', 'Calendar ID (default: primary)')
+    .option('--calendar <id>', 'Calendar ID (default: all selected calendars)')
     .option('--limit <n>', 'Maximum results', '50')
     .action(
       withErrorHandling(async function (this: Command, query: string, options) {
@@ -82,7 +82,7 @@ export function createCalendarCommand(): Command {
   calendar
     .command('event <id>')
     .description('Get a specific event by ID')
-    .option('--calendar <id>', 'Calendar ID (default: primary)')
+    .option('--calendar <id>', 'Calendar ID (default: all selected calendars)')
     .action(
       withErrorHandling(async function (this: Command, eventId: string, options) {
         const client = getCalendarClient(getProfile(this));
