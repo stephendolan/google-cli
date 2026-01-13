@@ -34,6 +34,15 @@ interface ClientCredentials {
   client_secret: string;
 }
 
+export interface ExportData {
+  version: 1;
+  profile: string;
+  email?: string;
+  client_id: string;
+  client_secret: string;
+  tokens: Tokens;
+}
+
 let keyringModule: typeof import('@napi-rs/keyring') | null = null;
 
 async function getKeyring(): Promise<typeof import('@napi-rs/keyring') | null> {
@@ -339,4 +348,42 @@ export async function startAuthFlow(
       reject(new Error(`Failed to start auth server: ${err.message}`));
     });
   });
+}
+
+export async function exportProfile(profile?: string): Promise<ExportData> {
+  const p = profile ?? getActiveProfile();
+  validateProfileName(p);
+
+  const credentials = await getClientCredentials(p);
+  const tokens = await getTokens(p);
+  const email = getProfileEmail(p);
+
+  if (!credentials) {
+    throw new Error(`Profile '${p}' has no OAuth credentials configured`);
+  }
+
+  if (!tokens) {
+    throw new Error(`Profile '${p}' has no authentication tokens`);
+  }
+
+  return {
+    version: 1,
+    profile: p,
+    email,
+    client_id: credentials.client_id,
+    client_secret: credentials.client_secret,
+    tokens,
+  };
+}
+
+export async function importProfile(
+  data: ExportData,
+  targetProfile?: string
+): Promise<void> {
+  const profile = targetProfile ?? data.profile;
+  validateProfileName(profile);
+
+  await setClientCredentials(data.client_id, data.client_secret, profile);
+  await setTokens(data.tokens, profile);
+  addProfile(profile, data.email);
 }

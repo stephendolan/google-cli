@@ -1,9 +1,13 @@
+import * as fs from 'node:fs';
 import { Command } from 'commander';
 import {
   isAuthenticated,
   logout,
   startAuthFlow,
   deleteProfileCredentials,
+  exportProfile,
+  importProfile,
+  type ExportData,
 } from '../lib/auth.js';
 import {
   getActiveProfile,
@@ -16,6 +20,20 @@ import {
 import { outputJson } from '../lib/output.js';
 import { withErrorHandling } from '../lib/command-utils.js';
 import { GoogleCliError } from '../lib/errors.js';
+
+async function readStdin(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', (chunk) => {
+      data += chunk;
+    });
+    process.stdin.on('end', () => {
+      resolve(data);
+    });
+    process.stdin.on('error', reject);
+  });
+}
 
 export function createAuthCommand(): Command {
   const cmd = new Command('auth').description('Authentication management');
@@ -138,6 +156,67 @@ export function createAuthCommand(): Command {
         await deleteProfileCredentials(name);
         removeProfile(name);
         outputJson({ status: 'deleted', profile: name });
+      })
+    );
+
+  cmd
+    .command('export')
+    .description('Export profile credentials for transfer to another machine')
+    .option('-p, --profile <name>', 'Profile to export (default: active profile)')
+    .option('-o, --output <file>', 'Output file (default: stdout)')
+    .action(
+      withErrorHandling(async (options) => {
+        const profile = options.profile ?? getActiveProfile();
+        const data = await exportProfile(profile);
+        const json = JSON.stringify(data, null, 2);
+
+        if (options.output) {
+          fs.writeFileSync(options.output, json);
+          console.error(`Exported profile '${profile}' to ${options.output}`);
+        } else {
+          process.stdout.write(json);
+        }
+      })
+    );
+
+  cmd
+    .command('import')
+    .description('Import profile credentials from export file')
+    .option('-f, --file <path>', 'Input file (default: stdin)')
+    .option('-p, --profile <name>', 'Target profile name (default: use name from export)')
+    .option('--force', 'Overwrite existing profile')
+    .action(
+      withErrorHandling(async (options) => {
+        const json = options.file
+          ? fs.readFileSync(options.file, 'utf-8')
+          : await readStdin();
+
+        let data: ExportData;
+        try {
+          data = JSON.parse(json) as ExportData;
+        } catch {
+          throw new GoogleCliError('Invalid JSON in import data');
+        }
+
+        if (data.version !== 1) {
+          throw new GoogleCliError(`Unsupported export format version: ${data.version}`);
+        }
+
+        const targetProfile = options.profile ?? data.profile;
+
+        if (profileExists(targetProfile) && !options.force) {
+          throw new GoogleCliError(
+            `Profile '${targetProfile}' already exists. Use --force to overwrite.`
+          );
+        }
+
+        await importProfile(data, targetProfile);
+
+        outputJson({
+          status: 'imported',
+          profile: targetProfile,
+          email: data.email ?? undefined,
+        });
       })
     );
 
