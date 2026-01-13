@@ -83,7 +83,12 @@ export class CalendarClient {
       orderBy: 'startTime',
       q: query,
     });
-    return (response.data.items ?? []).map(parseEvent);
+    const events = response.data.items ?? [];
+    // Filter out location markers and focus time blocks
+    const filteredEvents = events.filter(
+      (e) => e.eventType !== 'workingLocation' && e.eventType !== 'focusTime'
+    );
+    return filteredEvents.map(parseEvent);
   }
 
   private async fetchEvents(
