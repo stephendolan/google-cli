@@ -75,18 +75,16 @@ export class CalendarClient {
   }
 
   private async fetchEvents(
-    calendarId?: string,
     timeMin: string,
     timeMax: string,
+    calendarId?: string,
     maxResults?: number,
     query?: string
   ): Promise<ParsedCalendarEvent[]> {
-    // If specific calendar requested, use it
     if (calendarId) {
       return this.fetchEventsFromCalendar(calendarId, timeMin, timeMax, maxResults, query);
     }
 
-    // Otherwise, fetch from all selected calendars and merge
     const calendars = await this.listCalendars();
     const selectedCalendars = calendars.filter((c) => c.selected);
 
@@ -96,7 +94,6 @@ export class CalendarClient {
       )
     );
 
-    // Flatten and sort by start time
     return allEvents
       .flat()
       .sort((a, b) => {
@@ -121,7 +118,7 @@ export class CalendarClient {
     const endOfDay = new Date(startOfDay);
     endOfDay.setDate(endOfDay.getDate() + 1);
 
-    return this.fetchEvents(calendarId, startOfDay.toISOString(), endOfDay.toISOString());
+    return this.fetchEvents(startOfDay.toISOString(), endOfDay.toISOString(), calendarId);
   }
 
   async getEventsThisWeek(calendarId?: string): Promise<ParsedCalendarEvent[]> {
@@ -133,7 +130,7 @@ export class CalendarClient {
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(endOfWeek.getDate() + 7);
 
-    return this.fetchEvents(calendarId, startOfWeek.toISOString(), endOfWeek.toISOString());
+    return this.fetchEvents(startOfWeek.toISOString(), endOfWeek.toISOString(), calendarId);
   }
 
   async getEventsInRange(
@@ -141,7 +138,7 @@ export class CalendarClient {
     timeMax: string,
     calendarId?: string
   ): Promise<ParsedCalendarEvent[]> {
-    return this.fetchEvents(calendarId, timeMin, timeMax);
+    return this.fetchEvents(timeMin, timeMax, calendarId);
   }
 
   async searchEvents(
@@ -153,9 +150,9 @@ export class CalendarClient {
     oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
 
     return this.fetchEvents(
-      options.calendarId,
       now.toISOString(),
       oneYearFromNow.toISOString(),
+      options.calendarId,
       options.maxResults,
       query
     );
