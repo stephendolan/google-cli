@@ -46,12 +46,24 @@ google auth login --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET
 
 ```bash
 google auth login --client-id <id> --client-secret <secret>
+google auth login --client-id <id> --client-secret <secret> --name work
 google auth status
 google auth logout
 google auth current                             # Show active profile
 google auth list                                # List all profiles
 google auth switch <name>                       # Switch to profile
 google auth delete <name>                       # Delete a profile
+google auth export                              # Export credentials to stdout
+google auth export -o credentials.json          # Export to file
+google auth import -f credentials.json          # Import from file
+google auth import --name work -f creds.json    # Import with custom profile name
+```
+
+Use `-p, --profile` with `status`, `logout`, and `export` to target a specific profile:
+
+```bash
+google -p work auth status
+google -p work auth export -o work-creds.json
 ```
 
 Or use environment variables:
@@ -65,7 +77,7 @@ Or use environment variables:
 google calendar calendars                    # List all calendars
 google calendar today                        # Today's events
 google calendar week                         # This week's events
-google calendar list --from 2024-01-01 --to 2024-01-31  # Date range
+google calendar list --from 2026-01-01 --to 2026-01-31  # Date range
 google calendar search "meeting"             # Search upcoming events
 google calendar event <event-id>             # Get specific event
 ```

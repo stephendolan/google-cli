@@ -35,6 +35,10 @@ async function readStdin(): Promise<string> {
   });
 }
 
+function getProfile(cmd: Command): string | undefined {
+  return cmd.parent?.parent?.opts()?.profile;
+}
+
 export function createAuthCommand(): Command {
   const cmd = new Command('auth').description('Authentication management');
 
@@ -43,16 +47,16 @@ export function createAuthCommand(): Command {
     .description('Authenticate with Google using OAuth2')
     .requiredOption('--client-id <id>', 'Google OAuth2 Client ID')
     .requiredOption('--client-secret <secret>', 'Google OAuth2 Client Secret')
-    .option('-p, --profile <name>', 'Profile name (default: "default")', 'default')
+    .option('--name <name>', 'Profile name to create (default: "default")', 'default')
     .action(
-      withErrorHandling(async (options) => {
-        await startAuthFlow(options.clientId, options.clientSecret, options.profile);
-        const email = getProfileEmail(options.profile);
+      withErrorHandling(async function (this: Command, options) {
+        await startAuthFlow(options.clientId, options.clientSecret, options.name);
+        const email = getProfileEmail(options.name);
         outputJson({
           status: 'authenticated',
-          profile: options.profile,
+          profile: options.name,
           email: email ?? undefined,
-          message: `Successfully authenticated profile '${options.profile}'`,
+          message: `Successfully authenticated profile '${options.name}'`,
         });
       })
     );
@@ -60,10 +64,9 @@ export function createAuthCommand(): Command {
   cmd
     .command('status')
     .description('Check authentication status')
-    .option('-p, --profile <name>', 'Profile name (default: active profile)')
     .action(
-      withErrorHandling(async (options) => {
-        const profile = options.profile ?? getActiveProfile();
+      withErrorHandling(async function (this: Command) {
+        const profile = getProfile(this) ?? getActiveProfile();
         const authenticated = await isAuthenticated(profile);
         const email = getProfileEmail(profile);
         const active = getActiveProfile();
@@ -79,10 +82,9 @@ export function createAuthCommand(): Command {
   cmd
     .command('logout')
     .description('Clear tokens for a profile (keeps credentials for re-login)')
-    .option('-p, --profile <name>', 'Profile name (default: active profile)')
     .action(
-      withErrorHandling(async (options) => {
-        const profile = options.profile ?? getActiveProfile();
+      withErrorHandling(async function (this: Command) {
+        const profile = getProfile(this) ?? getActiveProfile();
         await logout(profile);
         outputJson({ status: 'logged_out', profile });
       })
@@ -162,11 +164,10 @@ export function createAuthCommand(): Command {
   cmd
     .command('export')
     .description('Export profile credentials for transfer to another machine')
-    .option('-p, --profile <name>', 'Profile to export (default: active profile)')
     .option('-o, --output <file>', 'Output file (default: stdout)')
     .action(
-      withErrorHandling(async (options) => {
-        const profile = options.profile ?? getActiveProfile();
+      withErrorHandling(async function (this: Command, options) {
+        const profile = getProfile(this) ?? getActiveProfile();
         const data = await exportProfile(profile);
         const json = JSON.stringify(data, null, 2);
 
@@ -183,7 +184,7 @@ export function createAuthCommand(): Command {
     .command('import')
     .description('Import profile credentials from export file')
     .option('-f, --file <path>', 'Input file (default: stdin)')
-    .option('-p, --profile <name>', 'Target profile name (default: use name from export)')
+    .option('--name <name>', 'Target profile name (default: use name from export)')
     .option('--force', 'Overwrite existing profile')
     .action(
       withErrorHandling(async (options) => {
@@ -202,7 +203,7 @@ export function createAuthCommand(): Command {
           throw new GoogleCliError(`Unsupported export format version: ${data.version}`);
         }
 
-        const targetProfile = options.profile ?? data.profile;
+        const targetProfile = options.name ?? data.profile;
 
         if (profileExists(targetProfile) && !options.force) {
           throw new GoogleCliError(
