@@ -3,6 +3,16 @@ import { getAuthenticatedClient } from './auth.js';
 import { getActiveProfile } from './config.js';
 import type { CalendarListEntry, CalendarEvent, ParsedCalendarEvent } from '../types/index.js';
 
+function getTimeZone(): string {
+  return process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+}
+
+function getDateInTimeZone(date: Date, timeZone: string): Date {
+  // Convert date to the target timezone by parsing its locale string representation
+  const localeString = date.toLocaleString('en-US', { timeZone });
+  return new Date(localeString);
+}
+
 function parseEvent(event: CalendarEvent): ParsedCalendarEvent {
   if (!event.id) {
     throw new Error('Calendar event missing required id field');
@@ -59,13 +69,15 @@ export class CalendarClient {
     timeMin: string,
     timeMax: string,
     maxResults?: number,
-    query?: string
+    query?: string,
+    timeZone?: string
   ): Promise<ParsedCalendarEvent[]> {
     const calendar = await this.getCalendar();
     const response = await calendar.events.list({
       calendarId,
       timeMin,
       timeMax,
+      timeZone,
       maxResults: maxResults ?? 50,
       singleEvents: true,
       orderBy: 'startTime',
@@ -79,10 +91,11 @@ export class CalendarClient {
     timeMax: string,
     calendarId?: string,
     maxResults?: number,
-    query?: string
+    query?: string,
+    timeZone?: string
   ): Promise<ParsedCalendarEvent[]> {
     if (calendarId) {
-      return this.fetchEventsFromCalendar(calendarId, timeMin, timeMax, maxResults, query);
+      return this.fetchEventsFromCalendar(calendarId, timeMin, timeMax, maxResults, query, timeZone);
     }
 
     const calendars = await this.listCalendars();
@@ -90,7 +103,7 @@ export class CalendarClient {
 
     const allEvents = await Promise.all(
       selectedCalendars.map((c) =>
-        this.fetchEventsFromCalendar(c.id!, timeMin, timeMax, maxResults, query)
+        this.fetchEventsFromCalendar(c.id!, timeMin, timeMax, maxResults, query, timeZone)
       )
     );
 
@@ -113,24 +126,40 @@ export class CalendarClient {
   }
 
   async getEventsToday(calendarId?: string): Promise<ParsedCalendarEvent[]> {
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const timeZone = getTimeZone();
+    const nowInTz = getDateInTimeZone(new Date(), timeZone);
+    const startOfDay = new Date(nowInTz.getFullYear(), nowInTz.getMonth(), nowInTz.getDate());
     const endOfDay = new Date(startOfDay);
     endOfDay.setDate(endOfDay.getDate() + 1);
 
-    return this.fetchEvents(startOfDay.toISOString(), endOfDay.toISOString(), calendarId);
+    return this.fetchEvents(
+      startOfDay.toISOString(),
+      endOfDay.toISOString(),
+      calendarId,
+      undefined,
+      undefined,
+      timeZone
+    );
   }
 
   async getEventsThisWeek(calendarId?: string): Promise<ParsedCalendarEvent[]> {
-    const now = new Date();
-    const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const timeZone = getTimeZone();
+    const nowInTz = getDateInTimeZone(new Date(), timeZone);
+    const startOfWeek = new Date(nowInTz.getFullYear(), nowInTz.getMonth(), nowInTz.getDate());
     const dayOfWeek = startOfWeek.getDay();
     startOfWeek.setDate(startOfWeek.getDate() - dayOfWeek);
 
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(endOfWeek.getDate() + 7);
 
-    return this.fetchEvents(startOfWeek.toISOString(), endOfWeek.toISOString(), calendarId);
+    return this.fetchEvents(
+      startOfWeek.toISOString(),
+      endOfWeek.toISOString(),
+      calendarId,
+      undefined,
+      undefined,
+      timeZone
+    );
   }
 
   async getEventsInRange(
