@@ -9,8 +9,8 @@ import {
   profileExists,
   getProfileEmail,
 } from './config.js';
+import { getStorageBackend, getKeyringBackend } from './storage.js';
 
-const SERVICE = 'google-cli';
 const REDIRECT_PORT = 8089;
 const REDIRECT_URI = `http://localhost:${REDIRECT_PORT}/callback`;
 
@@ -43,77 +43,28 @@ export interface ExportData {
   tokens: Tokens;
 }
 
-let keyringModule: typeof import('@napi-rs/keyring') | null = null;
-
-async function getKeyring(): Promise<typeof import('@napi-rs/keyring') | null> {
-  if (keyringModule !== null) return keyringModule;
-  try {
-    keyringModule = await import('@napi-rs/keyring');
-    return keyringModule;
-  } catch {
-    return null;
-  }
-}
-
-function profileKey(profile: string, key: string): string {
-  return `profile:${profile}:${key}`;
-}
-
-async function getFromKeyring(account: string): Promise<string | null> {
-  const keyring = await getKeyring();
-  if (!keyring) return null;
-  try {
-    const entry = new keyring.Entry(SERVICE, account);
-    return entry.getPassword();
-  } catch {
-    return null;
-  }
-}
-
-async function setInKeyring(account: string, value: string): Promise<boolean> {
-  const keyring = await getKeyring();
-  if (!keyring) return false;
-  try {
-    const entry = new keyring.Entry(SERVICE, account);
-    entry.setPassword(value);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function deleteFromKeyring(account: string): Promise<boolean> {
-  const keyring = await getKeyring();
-  if (!keyring) return false;
-  try {
-    const entry = new keyring.Entry(SERVICE, account);
-    return entry.deletePassword();
-  } catch {
-    return false;
-  }
-}
-
 async function migrateOldCredentials(): Promise<boolean> {
-  const oldClientId = await getFromKeyring('client_id');
-  const oldClientSecret = await getFromKeyring('client_secret');
-  const oldTokens = await getFromKeyring('tokens');
+  const keyring = getKeyringBackend();
+  const keysToMigrate = ['client_id', 'client_secret', 'tokens'] as const;
 
-  if (!oldClientId && !oldClientSecret && !oldTokens) {
+  const oldValues = await Promise.all(keysToMigrate.map((key) => keyring.getOldKey(key)));
+  const hasOldCredentials = oldValues.some((value) => value !== null);
+
+  if (!hasOldCredentials) {
     return false;
   }
 
-  if (oldClientId) {
-    await setInKeyring(profileKey('default', 'client_id'), oldClientId);
-    await deleteFromKeyring('client_id');
-  }
-  if (oldClientSecret) {
-    await setInKeyring(profileKey('default', 'client_secret'), oldClientSecret);
-    await deleteFromKeyring('client_secret');
-  }
-  if (oldTokens) {
-    await setInKeyring(profileKey('default', 'tokens'), oldTokens);
-    await deleteFromKeyring('tokens');
-  }
+  const storage = getStorageBackend();
+
+  await Promise.all(
+    keysToMigrate.map(async (key, i) => {
+      const value = oldValues[i];
+      if (value) {
+        await storage.set('default', key, value);
+        await keyring.deleteOldKey(key);
+      }
+    })
+  );
 
   if (!profileExists('default')) {
     addProfile('default');
@@ -128,14 +79,9 @@ export async function getClientCredentials(profile?: string): Promise<ClientCred
 
   await migrateOldCredentials();
 
-  const clientId =
-    (await getFromKeyring(profileKey(p, 'client_id'))) ||
-    (p === 'default' && (process.env.GOOGLE_CLIENT_ID || process.env.GMAIL_CLIENT_ID)) ||
-    null;
-  const clientSecret =
-    (await getFromKeyring(profileKey(p, 'client_secret'))) ||
-    (p === 'default' && (process.env.GOOGLE_CLIENT_SECRET || process.env.GMAIL_CLIENT_SECRET)) ||
-    null;
+  const storage = getStorageBackend();
+  const clientId = await storage.get(p, 'client_id');
+  const clientSecret = await storage.get(p, 'client_secret');
 
   if (!clientId || !clientSecret) return null;
   return { client_id: clientId, client_secret: clientSecret };
@@ -148,8 +94,9 @@ export async function setClientCredentials(
 ): Promise<void> {
   const p = profile ?? getActiveProfile();
   validateProfileName(p);
-  await setInKeyring(profileKey(p, 'client_id'), clientId);
-  await setInKeyring(profileKey(p, 'client_secret'), clientSecret);
+  const storage = getStorageBackend();
+  await storage.set(p, 'client_id', clientId);
+  await storage.set(p, 'client_secret', clientSecret);
 }
 
 export async function getTokens(profile?: string): Promise<Tokens | null> {
@@ -158,13 +105,8 @@ export async function getTokens(profile?: string): Promise<Tokens | null> {
 
   await migrateOldCredentials();
 
-  // Only fall back to env vars for 'default' profile with no email configured
-  // (i.e., user hasn't run auth login yet). Once email is set, use keyring only.
-  const shouldFallbackToEnv = p === 'default' && !getProfileEmail(p);
-  const tokensJson =
-    (await getFromKeyring(profileKey(p, 'tokens'))) ||
-    (shouldFallbackToEnv && (process.env.GOOGLE_TOKENS || process.env.GMAIL_TOKENS)) ||
-    null;
+  const storage = getStorageBackend();
+  const tokensJson = await storage.get(p, 'tokens');
   if (!tokensJson) return null;
   try {
     return JSON.parse(tokensJson);
@@ -176,7 +118,8 @@ export async function getTokens(profile?: string): Promise<Tokens | null> {
 export async function setTokens(tokens: Tokens, profile?: string): Promise<void> {
   const p = profile ?? getActiveProfile();
   validateProfileName(p);
-  await setInKeyring(profileKey(p, 'tokens'), JSON.stringify(tokens));
+  const storage = getStorageBackend();
+  await storage.set(p, 'tokens', JSON.stringify(tokens));
 }
 
 export async function isAuthenticated(profile?: string): Promise<boolean> {
@@ -189,14 +132,14 @@ export async function isAuthenticated(profile?: string): Promise<boolean> {
 export async function logout(profile?: string): Promise<void> {
   const p = profile ?? getActiveProfile();
   validateProfileName(p);
-  await deleteFromKeyring(profileKey(p, 'tokens'));
+  const storage = getStorageBackend();
+  await storage.delete(p, 'tokens');
 }
 
 export async function deleteProfileCredentials(profile: string): Promise<void> {
   validateProfileName(profile);
-  await deleteFromKeyring(profileKey(profile, 'client_id'));
-  await deleteFromKeyring(profileKey(profile, 'client_secret'));
-  await deleteFromKeyring(profileKey(profile, 'tokens'));
+  const storage = getStorageBackend();
+  await storage.deleteProfile(profile);
 }
 
 function createOAuth2Client(credentials: ClientCredentials) {

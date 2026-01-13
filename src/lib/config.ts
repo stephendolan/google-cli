@@ -14,7 +14,7 @@ interface Config {
   profiles: Record<string, ProfileConfig>;
 }
 
-function getConfigDir(): string {
+export function getConfigDir(): string {
   const platform = os.platform();
   if (platform === 'darwin') {
     return path.join(os.homedir(), 'Library', 'Application Support', 'google-cli');
@@ -24,7 +24,7 @@ function getConfigDir(): string {
   return path.join(os.homedir(), '.config', 'google-cli');
 }
 
-export function getConfigPath(): string {
+function getConfigPath(): string {
   return path.join(getConfigDir(), 'config.json');
 }
 
@@ -135,13 +135,4 @@ export function removeProfile(name: string): void {
 export function getProfileEmail(name: string): string | undefined {
   const config = loadConfig();
   return config.profiles[name]?.email;
-}
-
-export function setProfileEmail(name: string, email: string): void {
-  const config = loadConfig();
-  if (!config.profiles[name]) {
-    config.profiles[name] = {};
-  }
-  config.profiles[name].email = email;
-  saveConfig(config);
 }
