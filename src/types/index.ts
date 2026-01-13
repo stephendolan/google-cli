@@ -124,13 +124,6 @@ export interface CalendarEventAttendee {
   organizer?: boolean | null;
 }
 
-export type CalendarEventType =
-  | 'default'
-  | 'outOfOffice'
-  | 'focusTime'
-  | 'workingLocation'
-  | 'fromGmail';
-
 export interface CalendarEvent {
   id?: string | null;
   summary?: string | null;
@@ -139,7 +132,7 @@ export interface CalendarEvent {
   start?: CalendarEventDateTime;
   end?: CalendarEventDateTime;
   status?: string | null;
-  eventType?: CalendarEventType | null;
+  eventType?: string | null;
   htmlLink?: string | null;
   created?: string | null;
   updated?: string | null;
