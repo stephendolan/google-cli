@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import { Command } from 'commander';
 import {
   isAuthenticated,
+  getAuthStatus,
   logout,
   startAuthFlow,
   deleteProfileCredentials,
@@ -67,14 +68,24 @@ export function createAuthCommand(): Command {
     .action(
       withErrorHandling(async function (this: Command) {
         const profile = getProfile(this) ?? getActiveProfile();
-        const authenticated = await isAuthenticated(profile);
+        const status = await getAuthStatus(profile);
         const email = getProfileEmail(profile);
         const active = getActiveProfile();
         outputJson({
           profile,
-          authenticated,
+          authenticated: status.authenticated,
           email: email ?? undefined,
           active: profile === active,
+          ...(status.error && {
+            error: status.error,
+            hint: status.hint,
+            details: {
+              hasCredentials: status.hasCredentials,
+              hasTokens: status.hasTokens,
+              hasRefreshToken: status.hasRefreshToken,
+              tokenExpired: status.tokenExpired,
+            },
+          }),
         });
       })
     );

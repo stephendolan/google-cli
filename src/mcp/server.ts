@@ -12,27 +12,6 @@ import {
   profileExists,
 } from '../lib/config.js';
 
-const toolRegistry = [
-  { name: 'check_auth', description: 'Check if Google CLI is authenticated' },
-  { name: 'current_profile', description: 'Get the currently active profile' },
-  { name: 'switch_profile', description: 'Switch to a different profile (persists to config)' },
-  { name: 'list_profiles', description: 'List all configured profiles' },
-  { name: 'list_messages', description: 'List messages from Gmail inbox' },
-  { name: 'read_message', description: 'Read a specific email message by ID' },
-  { name: 'search_messages', description: 'Search messages using Gmail search syntax' },
-  { name: 'list_labels', description: 'List all Gmail labels' },
-  { name: 'list_drafts', description: 'List all draft emails' },
-  { name: 'read_draft', description: 'Read a specific draft by ID' },
-  { name: 'create_draft', description: 'Create a new email draft (does NOT send)' },
-  { name: 'get_attachment', description: 'Download an attachment from an email message' },
-  { name: 'list_calendars', description: 'List all Google calendars' },
-  { name: 'calendar_today', description: "Get today's calendar events" },
-  { name: 'calendar_week', description: "Get this week's calendar events" },
-  { name: 'calendar_events', description: 'Get calendar events in a date range' },
-  { name: 'calendar_search', description: 'Search upcoming calendar events' },
-  { name: 'calendar_event', description: 'Get a specific calendar event by ID' },
-];
-
 const server = new McpServer({
   name: 'google',
   version: '0.2.0',
@@ -255,7 +234,7 @@ server.tool(
   'calendar_today',
   "Get today's calendar events",
   {
-    calendarId: z.string().optional().describe('Calendar ID (default: primary)'),
+    calendarId: z.string().optional().describe('Calendar name or ID (default: all selected calendars)'),
   },
   async ({ calendarId }) => {
     try {
@@ -271,7 +250,7 @@ server.tool(
   'calendar_week',
   "Get this week's calendar events",
   {
-    calendarId: z.string().optional().describe('Calendar ID (default: primary)'),
+    calendarId: z.string().optional().describe('Calendar name or ID (default: all selected calendars)'),
   },
   async ({ calendarId }) => {
     try {
@@ -289,7 +268,7 @@ server.tool(
   {
     timeMin: z.string().describe('Start date/time (ISO 8601)'),
     timeMax: z.string().describe('End date/time (ISO 8601)'),
-    calendarId: z.string().optional().describe('Calendar ID (default: primary)'),
+    calendarId: z.string().optional().describe('Calendar name or ID (default: all selected calendars)'),
   },
   async ({ timeMin, timeMax, calendarId }) => {
     try {
@@ -306,7 +285,7 @@ server.tool(
   'Search upcoming calendar events',
   {
     query: z.string().describe('Search query'),
-    calendarId: z.string().optional().describe('Calendar ID (default: primary)'),
+    calendarId: z.string().optional().describe('Calendar name or ID (default: all selected calendars)'),
     limit: z.number().optional().describe('Maximum results (default: 50)'),
   },
   async ({ query, calendarId, limit }) => {
@@ -327,7 +306,7 @@ server.tool(
   'Get a specific calendar event by ID',
   {
     eventId: z.string().describe('Event ID'),
-    calendarId: z.string().optional().describe('Calendar ID (default: primary)'),
+    calendarId: z.string().optional().describe('Calendar name or ID (default: primary)'),
   },
   async ({ eventId, calendarId }) => {
     try {
@@ -335,23 +314,6 @@ server.tool(
       return jsonResponse(event);
     } catch (e) {
       return errorResponse(e);
-    }
-  }
-);
-
-server.tool(
-  'search_tools',
-  'Search for available tools by name or description using regex. Returns matching tool names.',
-  {
-    query: z.string().describe('Regex pattern to match against tool names and descriptions (case-insensitive)'),
-  },
-  async ({ query }) => {
-    try {
-      const pattern = new RegExp(query, 'i');
-      const matches = toolRegistry.filter((t) => pattern.test(t.name) || pattern.test(t.description));
-      return jsonResponse({ tools: matches });
-    } catch {
-      return jsonResponse({ error: 'Invalid regex pattern' });
     }
   }
 );
