@@ -7,10 +7,9 @@ function getTimeZone(): string {
   return process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 }
 
-function getDateInTimeZone(date: Date, timeZone: string): Date {
-  // Convert date to the target timezone by parsing its locale string representation
-  const localeString = date.toLocaleString('en-US', { timeZone });
-  return new Date(localeString);
+function toTimeZone(date: Date, timeZone: string): Date {
+  const localizedString = date.toLocaleString('en-US', { timeZone });
+  return new Date(localizedString);
 }
 
 function parseEvent(event: CalendarEvent): ParsedCalendarEvent {
@@ -64,6 +63,28 @@ export class CalendarClient {
     return (response.data.items ?? []) as CalendarListEntry[];
   }
 
+  async resolveCalendarId(nameOrId: string): Promise<string> {
+    const looksLikeCalendarId = nameOrId.includes('@');
+    if (looksLikeCalendarId) {
+      return nameOrId;
+    }
+
+    const calendars = await this.listCalendars();
+    const query = nameOrId.toLowerCase();
+
+    const exactMatch = calendars.find((c) => c.summary?.toLowerCase() === query);
+    if (exactMatch?.id) return exactMatch.id;
+
+    const prefixMatch = calendars.find((c) => c.summary?.toLowerCase().startsWith(query));
+    if (prefixMatch?.id) return prefixMatch.id;
+
+    const substringMatch = calendars.find((c) => c.summary?.toLowerCase().includes(query));
+    if (substringMatch?.id) return substringMatch.id;
+
+    const availableCalendars = calendars.map((c) => c.summary).join(', ');
+    throw new Error(`Calendar "${nameOrId}" not found. Available calendars: ${availableCalendars}`);
+  }
+
   private async fetchEventsFromCalendar(
     calendarId: string,
     timeMin: string,
@@ -84,11 +105,10 @@ export class CalendarClient {
       q: query,
     });
     const events = response.data.items ?? [];
-    // Filter out location markers and focus time blocks
-    const filteredEvents = events.filter(
+    const actualEvents = events.filter(
       (e) => e.eventType !== 'workingLocation' && e.eventType !== 'focusTime'
     );
-    return filteredEvents.map(parseEvent);
+    return actualEvents.map(parseEvent);
   }
 
   private async fetchEvents(
@@ -100,7 +120,8 @@ export class CalendarClient {
     timeZone?: string
   ): Promise<ParsedCalendarEvent[]> {
     if (calendarId) {
-      return this.fetchEventsFromCalendar(calendarId, timeMin, timeMax, maxResults, query, timeZone);
+      const resolvedId = await this.resolveCalendarId(calendarId);
+      return this.fetchEventsFromCalendar(resolvedId, timeMin, timeMax, maxResults, query, timeZone);
     }
 
     const calendars = await this.listCalendars();
@@ -123,8 +144,9 @@ export class CalendarClient {
 
   async getEvent(eventId: string, calendarId = 'primary'): Promise<ParsedCalendarEvent> {
     const calendar = await this.getCalendar();
+    const resolvedId = await this.resolveCalendarId(calendarId);
     const response = await calendar.events.get({
-      calendarId,
+      calendarId: resolvedId,
       eventId,
     });
     return parseEvent(response.data as CalendarEvent);
@@ -132,7 +154,7 @@ export class CalendarClient {
 
   async getEventsToday(calendarId?: string): Promise<ParsedCalendarEvent[]> {
     const timeZone = getTimeZone();
-    const nowInTz = getDateInTimeZone(new Date(), timeZone);
+    const nowInTz = toTimeZone(new Date(), timeZone);
     const startOfDay = new Date(nowInTz.getFullYear(), nowInTz.getMonth(), nowInTz.getDate());
     const endOfDay = new Date(startOfDay);
     endOfDay.setDate(endOfDay.getDate() + 1);
@@ -149,7 +171,7 @@ export class CalendarClient {
 
   async getEventsThisWeek(calendarId?: string): Promise<ParsedCalendarEvent[]> {
     const timeZone = getTimeZone();
-    const nowInTz = getDateInTimeZone(new Date(), timeZone);
+    const nowInTz = toTimeZone(new Date(), timeZone);
     const startOfWeek = new Date(nowInTz.getFullYear(), nowInTz.getMonth(), nowInTz.getDate());
     const dayOfWeek = startOfWeek.getDay();
     startOfWeek.setDate(startOfWeek.getDate() - dayOfWeek);

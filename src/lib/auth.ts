@@ -122,11 +122,70 @@ export async function setTokens(tokens: Tokens, profile?: string): Promise<void>
   await storage.set(p, 'tokens', JSON.stringify(tokens));
 }
 
-export async function isAuthenticated(profile?: string): Promise<boolean> {
+export interface AuthStatus {
+  authenticated: boolean;
+  hasCredentials: boolean;
+  hasTokens: boolean;
+  hasRefreshToken: boolean;
+  tokenExpired: boolean;
+  error?: string;
+  hint?: string;
+}
+
+export async function getAuthStatus(profile?: string): Promise<AuthStatus> {
   const p = profile ?? getActiveProfile();
+
   const creds = await getClientCredentials(p);
   const tokens = await getTokens(p);
-  return creds !== null && tokens !== null;
+
+  const status: AuthStatus = {
+    authenticated: false,
+    hasCredentials: creds !== null,
+    hasTokens: tokens !== null,
+    hasRefreshToken: tokens?.refresh_token !== undefined,
+    tokenExpired: tokens?.expiry_date ? Date.now() > tokens.expiry_date : false,
+  };
+
+  if (!creds || !tokens) {
+    status.error = !creds ? 'no_credentials' : 'no_tokens';
+    status.hint = `Run: google auth login --profile ${p}`;
+    return status;
+  }
+
+  try {
+    const oauth2Client = createOAuth2Client(creds);
+    oauth2Client.setCredentials(tokens);
+    oauth2Client.on('tokens', createTokenRefreshHandler(p));
+
+    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+    await oauth2.userinfo.get();
+
+    status.authenticated = true;
+    status.tokenExpired = false;
+    return status;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+
+    if (message.includes('invalid_grant')) {
+      status.error = 'refresh_token_expired';
+      status.hint =
+        'Refresh token expired. If your Google Cloud app is in "Testing" mode, tokens expire after 7 days. Re-run: google auth login';
+    } else if (message.includes('Token has been expired or revoked')) {
+      status.error = 'token_revoked';
+      status.hint =
+        'Token was revoked. Check https://myaccount.google.com/permissions or re-run: google auth login';
+    } else {
+      status.error = 'validation_failed';
+      status.hint = `Re-run: google auth login --profile ${p}`;
+    }
+
+    return status;
+  }
+}
+
+export async function isAuthenticated(profile?: string): Promise<boolean> {
+  const status = await getAuthStatus(profile);
+  return status.authenticated;
 }
 
 export async function logout(profile?: string): Promise<void> {
@@ -146,6 +205,20 @@ function createOAuth2Client(credentials: ClientCredentials) {
   return new google.auth.OAuth2(credentials.client_id, credentials.client_secret, REDIRECT_URI);
 }
 
+function createTokenRefreshHandler(profile: string) {
+  return async (newTokens: { access_token?: string | null; refresh_token?: string | null; expiry_date?: number | null }) => {
+    if (newTokens.access_token) {
+      const existingTokens = await getTokens(profile);
+      const merged: Tokens = {
+        access_token: newTokens.access_token,
+        refresh_token: newTokens.refresh_token ?? existingTokens?.refresh_token,
+        expiry_date: newTokens.expiry_date ?? existingTokens?.expiry_date,
+      };
+      await setTokens(merged, profile);
+    }
+  };
+}
+
 export async function getAuthenticatedClient(profile?: string) {
   const p = profile ?? getActiveProfile();
   const credentials = await getClientCredentials(p);
@@ -160,18 +233,7 @@ export async function getAuthenticatedClient(profile?: string) {
 
   const oauth2Client = createOAuth2Client(credentials);
   oauth2Client.setCredentials(tokens);
-
-  oauth2Client.on('tokens', async (newTokens) => {
-    if (newTokens.access_token) {
-      const existingTokens = await getTokens(p);
-      const merged: Tokens = {
-        access_token: newTokens.access_token,
-        refresh_token: newTokens.refresh_token ?? existingTokens?.refresh_token,
-        expiry_date: newTokens.expiry_date ?? existingTokens?.expiry_date,
-      };
-      await setTokens(merged, p);
-    }
-  });
+  oauth2Client.on('tokens', createTokenRefreshHandler(p));
 
   return oauth2Client;
 }
