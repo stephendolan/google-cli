@@ -2,6 +2,7 @@ import { google } from 'googleapis';
 import { getAuthenticatedClient } from './auth.js';
 import { getActiveProfile } from './config.js';
 import { GoogleCliError } from './errors.js';
+import { sanitizeInboxQuery } from './query.js';
 import type {
   Message,
   MessageList,
@@ -85,6 +86,7 @@ function extractAttachments(payload: MessagePart | undefined): MessageAttachment
 }
 
 function parseMessage(message: Message): ParsedMessage {
+  const labels = message.labelIds ?? [];
   const attachments = extractAttachments(message.payload);
   return {
     id: message.id,
@@ -95,8 +97,14 @@ function parseMessage(message: Message): ParsedMessage {
     date: getHeader(message, 'Date'),
     snippet: message.snippet,
     body: extractTextBody(message),
-    labels: message.labelIds,
+    labels,
     attachments: attachments.length > 0 ? attachments : undefined,
+    isInbox: labels.includes('INBOX'),
+    isUnread: labels.includes('UNREAD'),
+    isTrash: labels.includes('TRASH'),
+    isSpam: labels.includes('SPAM'),
+    isPromotions: labels.includes('CATEGORY_PROMOTIONS'),
+    isSocial: labels.includes('CATEGORY_SOCIAL'),
   };
 }
 
@@ -154,10 +162,14 @@ export class GmailClient {
     } = {}
   ): Promise<MessageList> {
     const gmail = await this.getGmail();
+    const q = sanitizeInboxQuery(
+      options.query,
+      options.labelIds?.includes('INBOX') ?? false
+    );
     const response = await gmail.users.messages.list({
       userId: 'me',
       maxResults: options.maxResults ?? 20,
-      q: options.query,
+      q: q || undefined,
       labelIds: options.labelIds,
     });
     return response.data as MessageList;
