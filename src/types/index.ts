@@ -86,6 +86,12 @@ export interface ParsedMessage {
   body?: string;
   labels?: string[];
   attachments?: MessageAttachment[];
+  isInbox: boolean;
+  isUnread: boolean;
+  isTrash: boolean;
+  isSpam: boolean;
+  isPromotions: boolean;
+  isSocial: boolean;
 }
 
 export interface CreateDraftParams {

@@ -12,23 +12,23 @@ export function createInboxCommand(): Command {
 
   cmd
     .command('list')
-    .description('List messages in inbox')
+    .description('List inbox messages (unread, excludes promotions/social by default)')
     .option('-l, --limit <n>', 'Maximum number of messages', '20')
-    .option('-u, --unread', 'Only show unread messages')
+    .option('-a, --all', 'Include read messages (default: unread only)')
+    .option('--promotions', 'Include category:promotions')
+    .option('--social', 'Include category:social')
     .action(
       withErrorHandling(async function (this: Command, options) {
         const client = getGmailClient(getProfile(this));
         const queryParts = ['in:inbox'];
-        if (options.unread) {
-          queryParts.push('is:unread');
-        }
-        const query = queryParts.join(' ');
 
-        const result = await client.listMessages({
-          maxResults: Number(options.limit),
-          query,
-        });
-        outputJson(result);
+        if (!options.all) queryParts.push('is:unread');
+        if (!options.promotions) queryParts.push('-category:promotions');
+        if (!options.social) queryParts.push('-category:social');
+
+        const query = queryParts.join(' ');
+        const messages = await client.searchMessages(query, Number(options.limit));
+        outputJson(messages);
       })
     );
 

@@ -94,7 +94,7 @@ server.tool('list_profiles', 'List all configured profiles', {}, async () => {
 
 server.tool(
   'list_messages',
-  'List messages from Gmail inbox',
+  'List message IDs from Gmail. Returns IDs only — use search_messages for full message content with boolean flags, or read_message for a single message.',
   {
     limit: z.number().optional().describe('Maximum number of messages (default: 20)'),
     query: z.string().optional().describe('Gmail search query'),
@@ -116,7 +116,7 @@ server.tool(
 
 server.tool(
   'read_message',
-  'Read a specific email message by ID',
+  'Read a single email by ID. Returns full message with boolean flags (isUnread, isInbox, isTrash, isSpam, isPromotions, isSocial).',
   { id: z.string().describe('Message ID') },
   async ({ id }) => {
     try {
@@ -130,7 +130,7 @@ server.tool(
 
 server.tool(
   'search_messages',
-  'Search messages using Gmail search syntax',
+  'Search Gmail messages. Returns full messages with boolean flags (isUnread, isInbox, isTrash, isSpam, isPromotions, isSocial). Inbox queries automatically exclude trash/spam.',
   {
     query: z.string().describe('Gmail search query (e.g., "from:user@example.com", "is:unread")'),
     limit: z.number().optional().describe('Maximum number of results (default: 20)'),
