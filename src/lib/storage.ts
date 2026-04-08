@@ -9,6 +9,7 @@ export interface StorageBackend {
   set(profile: string, key: string, value: string): Promise<boolean>;
   delete(profile: string, key: string): Promise<boolean>;
   deleteProfile(profile: string): Promise<boolean>;
+  listProfiles(): Promise<string[]>;
 }
 
 interface FileCredentials {
@@ -78,6 +79,11 @@ class KeyringBackend implements StorageBackend {
     const keys = ['client_id', 'client_secret', 'tokens'];
     const results = await Promise.all(keys.map((key) => this.delete(profile, key)));
     return results.every(Boolean);
+  }
+
+  async listProfiles(): Promise<string[]> {
+    // Keyring entries cannot be enumerated; config.json is the source of truth for this backend
+    return [];
   }
 
   async getOldKey(key: string): Promise<string | null> {
@@ -198,6 +204,19 @@ class FileBackend implements StorageBackend {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  async listProfiles(): Promise<string[]> {
+    const dir = getCredentialsDir();
+    if (!fs.existsSync(dir)) return [];
+    try {
+      return fs
+        .readdirSync(dir)
+        .filter((f) => f.endsWith('.json') && !f.endsWith('.tmp'))
+        .map((f) => f.replace(/\.json$/, ''));
+    } catch {
+      return [];
     }
   }
 }

@@ -13,7 +13,7 @@ import {
 import {
   getActiveProfile,
   setActiveProfile,
-  listProfiles,
+  discoverProfiles,
   removeProfile,
   getProfileEmail,
   profileExists,
@@ -118,7 +118,7 @@ export function createAuthCommand(): Command {
     .description('List all configured profiles')
     .action(
       withErrorHandling(async () => {
-        const profiles = listProfiles();
+        const profiles = await discoverProfiles();
         const active = getActiveProfile();
         const result = await Promise.all(
           profiles.map(async (name) => ({

@@ -7,7 +7,7 @@ import { isAuthenticated } from '../lib/auth.js';
 import {
   getActiveProfile,
   setActiveProfile,
-  listProfiles,
+  discoverProfiles,
   getProfileEmail,
   profileExists,
 } from '../lib/config.js';
@@ -67,6 +67,8 @@ server.tool(
   },
   async ({ profile }) => {
     try {
+      // Reconcile storage-discovered profiles before checking existence
+      await discoverProfiles();
       if (!profileExists(profile)) {
         return jsonResponse({ error: { name: 'profile_not_found', detail: `Profile '${profile}' not found` } });
       }
@@ -81,7 +83,7 @@ server.tool(
 
 server.tool('list_profiles', 'List all configured profiles', {}, async () => {
   try {
-    const profiles = listProfiles();
+    const profiles = await discoverProfiles();
     const active = getActiveProfile();
     const result = await Promise.all(
       profiles.map(async (name) => ({
