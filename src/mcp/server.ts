@@ -7,7 +7,7 @@ import { isAuthenticated } from '../lib/auth.js';
 import {
   getActiveProfile,
   setActiveProfile,
-  listProfiles,
+  discoverProfiles,
   getProfileEmail,
   profileExists,
 } from '../lib/config.js';
@@ -28,16 +28,23 @@ function errorResponse(error: unknown): ToolResponse {
   return jsonResponse({ error: { name: 'mcp_error', detail } });
 }
 
-server.tool('check_auth', 'Check if Google CLI is authenticated', {}, async () => {
-  try {
-    const profile = getActiveProfile();
-    const authenticated = await isAuthenticated(profile);
-    const email = getProfileEmail(profile);
-    return jsonResponse({ authenticated, profile, email: email ?? undefined });
-  } catch (e) {
-    return errorResponse(e);
+server.tool(
+  'check_auth',
+  'Check if Google CLI is authenticated',
+  {
+    profile: z.string().optional().describe('Profile to check (default: active profile)'),
+  },
+  async ({ profile: requestedProfile }) => {
+    try {
+      const profile = requestedProfile ?? getActiveProfile();
+      const authenticated = await isAuthenticated(profile);
+      const email = getProfileEmail(profile);
+      return jsonResponse({ authenticated, profile, email: email ?? undefined });
+    } catch (e) {
+      return errorResponse(e);
+    }
   }
-});
+);
 
 // Profile management tools
 
@@ -60,6 +67,8 @@ server.tool(
   },
   async ({ profile }) => {
     try {
+      // Reconcile storage-discovered profiles before checking existence
+      await discoverProfiles();
       if (!profileExists(profile)) {
         return jsonResponse({ error: { name: 'profile_not_found', detail: `Profile '${profile}' not found` } });
       }
@@ -74,7 +83,7 @@ server.tool(
 
 server.tool('list_profiles', 'List all configured profiles', {}, async () => {
   try {
-    const profiles = listProfiles();
+    const profiles = await discoverProfiles();
     const active = getActiveProfile();
     const result = await Promise.all(
       profiles.map(async (name) => ({

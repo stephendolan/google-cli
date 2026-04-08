@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { GoogleCliError } from './errors.js';
+import { getStorageBackend } from './storage.js';
 
 const PROFILE_NAME_REGEX = /^[a-zA-Z0-9_-]+$/;
 
@@ -96,9 +97,27 @@ export function setActiveProfile(name: string): void {
   saveConfig(config);
 }
 
-export function listProfiles(): string[] {
+export async function discoverProfiles(): Promise<string[]> {
   const config = loadConfig();
-  return Object.keys(config.profiles);
+  const configProfiles = Object.keys(config.profiles);
+  const storage = getStorageBackend();
+  const storageProfiles = await storage.listProfiles();
+
+  const allProfiles = new Set([...configProfiles, ...storageProfiles]);
+
+  // Auto-register storage-only profiles into config so future calls stay consistent
+  let dirty = false;
+  for (const name of storageProfiles) {
+    if (!config.profiles[name]) {
+      config.profiles[name] = {};
+      dirty = true;
+    }
+  }
+  if (dirty) {
+    saveConfig(config);
+  }
+
+  return [...allProfiles];
 }
 
 export function profileExists(name: string): boolean {
