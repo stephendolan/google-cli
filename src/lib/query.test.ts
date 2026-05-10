@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeInboxQuery } from './query.js';
+import { buildInboxQuery, sanitizeInboxQuery } from './query.js';
 
 describe('sanitizeInboxQuery', () => {
   it.each([
@@ -57,5 +57,33 @@ describe('sanitizeInboxQuery', () => {
     it('should not duplicate existing exclusions', () => {
       expect(sanitizeInboxQuery('-in:trash', true)).toBe('-in:trash -in:spam');
     });
+  });
+});
+
+describe('buildInboxQuery', () => {
+  // Regression: defaulting to is:unread caused list_inbox to return [] when
+  // the inbox only had read messages (e.g. labels ["INBOX","CATEGORY_UPDATES"]).
+  it('defaults to all inbox messages (read + unread), excluding promotions and social', () => {
+    expect(buildInboxQuery()).toBe(
+      'in:inbox -category:promotions -category:social'
+    );
+  });
+
+  it('adds is:unread when unread is true', () => {
+    expect(buildInboxQuery({ unread: true })).toBe(
+      'in:inbox is:unread -category:promotions -category:social'
+    );
+  });
+
+  it('drops the promotions exclusion when includePromotions is true', () => {
+    expect(buildInboxQuery({ includePromotions: true })).toBe(
+      'in:inbox -category:social'
+    );
+  });
+
+  it('drops the social exclusion when includeSocial is true', () => {
+    expect(buildInboxQuery({ includeSocial: true })).toBe(
+      'in:inbox -category:promotions'
+    );
   });
 });

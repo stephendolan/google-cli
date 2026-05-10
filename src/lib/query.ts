@@ -4,6 +4,24 @@ function hasOperator(query: string, operator: string): boolean {
   return new RegExp(`(?:^|\\s)-?${escaped}(?:\\s|$)`, 'i').test(query);
 }
 
+export interface InboxQueryOptions {
+  unread?: boolean;
+  includePromotions?: boolean;
+  includeSocial?: boolean;
+}
+
+/**
+ * Builds the Gmail search query used to list inbox messages. Defaults to
+ * read + unread so callers match `search_messages` with `in:inbox`.
+ */
+export function buildInboxQuery(options: InboxQueryOptions = {}): string {
+  const parts = ['in:inbox'];
+  if (options.unread) parts.push('is:unread');
+  if (!options.includePromotions) parts.push('-category:promotions');
+  if (!options.includeSocial) parts.push('-category:social');
+  return parts.join(' ');
+}
+
 /**
  * Appends `-in:trash -in:spam` to inbox queries so trashed/spam messages
  * don't leak into results. Skips exclusions the user already specified.
