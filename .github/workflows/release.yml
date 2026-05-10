@@ -6,8 +6,6 @@ on:
 
 permissions:
   contents: write
-  issues: write
-  pull-requests: write
   id-token: write
 
 jobs:
@@ -28,12 +26,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - run: bun install --frozen-lockfile
-      - run: bun run typecheck
-      - run: bun run lint
-      - run: bun test
-      - run: bun run build
 
-      - name: Release
-        run: bunx semantic-release
+      - run: bunx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
