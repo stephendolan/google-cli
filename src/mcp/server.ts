@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { getGmailClient } from '../lib/gmail-client.js';
 import { getCalendarClient } from '../lib/calendar-client.js';
 import { isAuthenticated } from '../lib/auth.js';
+import { buildInboxQuery } from '../lib/query.js';
 import {
   getActiveProfile,
   setActiveProfile,
@@ -250,21 +251,18 @@ server.tool(
 
 server.tool(
   'list_inbox',
-  'List actionable inbox messages. Excludes promotions and social by default. Returns full messages with boolean flags.',
+  'List inbox messages (read and unread). Excludes promotions and social by default. Returns full messages with boolean flags.',
   {
     limit: z.number().optional().describe('Maximum number of messages (default: 20)'),
-    includeRead: z.boolean().optional().describe('Include read messages (default: unread only)'),
+    unread: z.boolean().optional().describe('Only unread messages (default: false)'),
     includePromotions: z.boolean().optional().describe('Include promotions category'),
     includeSocial: z.boolean().optional().describe('Include social category'),
     profile: profileParam,
   },
-  async ({ limit, includeRead, includePromotions, includeSocial, profile }) => {
+  async ({ limit, unread, includePromotions, includeSocial, profile }) => {
     try {
-      const queryParts = ['in:inbox'];
-      if (!includeRead) queryParts.push('is:unread');
-      if (!includePromotions) queryParts.push('-category:promotions');
-      if (!includeSocial) queryParts.push('-category:social');
-      const messages = await getGmailClient(profile).searchMessages(queryParts.join(' '), limit ?? 20);
+      const query = buildInboxQuery({ unread, includePromotions, includeSocial });
+      const messages = await getGmailClient(profile).searchMessages(query, limit ?? 20);
       return jsonResponse(messages);
     } catch (e) {
       return errorResponse(e);

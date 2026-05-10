@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeInboxQuery } from './query.js';
+import { buildInboxQuery, sanitizeInboxQuery } from './query.js';
 
 describe('sanitizeInboxQuery', () => {
   it.each([
@@ -57,5 +57,49 @@ describe('sanitizeInboxQuery', () => {
     it('should not duplicate existing exclusions', () => {
       expect(sanitizeInboxQuery('-in:trash', true)).toBe('-in:trash -in:spam');
     });
+  });
+});
+
+describe('buildInboxQuery', () => {
+  it('defaults to all inbox messages, excluding promotions and social', () => {
+    expect(buildInboxQuery()).toBe(
+      'in:inbox -category:promotions -category:social'
+    );
+  });
+
+  it('does not add is:unread by default', () => {
+    expect(buildInboxQuery()).not.toContain('is:unread');
+  });
+
+  it('adds is:unread when unread is true', () => {
+    expect(buildInboxQuery({ unread: true })).toBe(
+      'in:inbox is:unread -category:promotions -category:social'
+    );
+  });
+
+  it('drops the promotions exclusion when includePromotions is true', () => {
+    expect(buildInboxQuery({ includePromotions: true })).toBe(
+      'in:inbox -category:social'
+    );
+  });
+
+  it('drops the social exclusion when includeSocial is true', () => {
+    expect(buildInboxQuery({ includeSocial: true })).toBe(
+      'in:inbox -category:promotions'
+    );
+  });
+
+  it('keeps a read inbox message in scope (regression: list_inbox returned [])', () => {
+    // A real Gmail inbox message can carry labels like
+    // ["Label_91", "CATEGORY_UPDATES", "INBOX"] without UNREAD. The previous
+    // implementation appended "is:unread" by default, so messages like that
+    // were filtered out and list_inbox returned []. The default query must
+    // not contain is:unread so these messages still surface.
+    const query = buildInboxQuery();
+    expect(query).toContain('in:inbox');
+    expect(query).not.toContain('is:unread');
+    // CATEGORY_UPDATES is neither promotions nor social, so default exclusions
+    // do not affect it.
+    expect(query).not.toContain('-category:updates');
   });
 });
