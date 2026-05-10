@@ -1,3 +1,10 @@
+## [2.4.2](https://github.com/stephendolan/google-cli/compare/v2.4.1...v2.4.2) (2026-05-10)
+
+
+### Bug Fixes
+
+* **inbox:** include read messages in list_inbox by default ([#17](https://github.com/stephendolan/google-cli/issues/17)) ([acffa34](https://github.com/stephendolan/google-cli/commit/acffa3463043501958349329bbf3e6dce5d9ca3d))
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
