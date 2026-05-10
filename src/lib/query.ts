@@ -11,11 +11,8 @@ export interface InboxQueryOptions {
 }
 
 /**
- * Builds the Gmail search query used to list inbox messages.
- *
- * Defaults to all inbox messages (read + unread) so callers see the same
- * results as `search_messages` with `in:inbox`. Pass `unread: true` to
- * narrow to unread only.
+ * Builds the Gmail search query used to list inbox messages. Defaults to
+ * read + unread so callers match `search_messages` with `in:inbox`.
  */
 export function buildInboxQuery(options: InboxQueryOptions = {}): string {
   const parts = ['in:inbox'];
