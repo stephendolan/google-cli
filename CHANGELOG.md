@@ -1,3 +1,10 @@
+# [2.5.0](https://github.com/stephendolan/google-cli/compare/v2.4.2...v2.5.0) (2026-05-26)
+
+
+### Features
+
+* **inbox:** add --read filter for read-only messages ([#19](https://github.com/stephendolan/google-cli/issues/19)) ([e888a89](https://github.com/stephendolan/google-cli/commit/e888a897b5c5c52cb88a99aaa03a2595a273d130))
+
 ## [2.4.2](https://github.com/stephendolan/google-cli/compare/v2.4.1...v2.4.2) (2026-05-10)
 
 
