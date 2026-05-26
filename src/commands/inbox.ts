@@ -12,17 +12,23 @@ export function createInboxCommand(): Command {
 
   cmd
     .command('list')
-    .description('List inbox messages (unread, excludes promotions/social by default)')
+    .description('List inbox messages (excludes promotions/social by default; each has an isUnread flag)')
     .option('-l, --limit <n>', 'Maximum number of messages', '20')
-    .option('-a, --all', 'Include read messages (default: unread only)')
+    .option('-u, --unread', 'Only show unread messages')
+    .option('-r, --read', 'Only show read messages')
     .option('--promotions', 'Include category:promotions')
     .option('--social', 'Include category:social')
     .action(
       withErrorHandling(async function (this: Command, options) {
+        if (options.unread && options.read) {
+          throw new Error('Cannot combine --unread and --read');
+        }
+
         const client = getGmailClient(getProfile(this));
         const queryParts = ['in:inbox'];
 
-        if (!options.all) queryParts.push('is:unread');
+        if (options.unread) queryParts.push('is:unread');
+        if (options.read) queryParts.push('is:read');
         if (!options.promotions) queryParts.push('-category:promotions');
         if (!options.social) queryParts.push('-category:social');
 

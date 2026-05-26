@@ -248,18 +248,21 @@ server.tool(
 
 server.tool(
   'list_inbox',
-  'List actionable inbox messages. Excludes promotions and social by default. Returns full messages with boolean flags.',
+  'List inbox messages (read and unread). Excludes promotions and social by default. Returns full messages with boolean flags, including isUnread for status.',
   {
     limit: z.number().optional().describe('Maximum number of messages (default: 20)'),
-    includeRead: z.boolean().optional().describe('Include read messages (default: unread only)'),
+    unreadOnly: z.boolean().optional().describe('Only show unread messages (default: all inbox messages)'),
+    readOnly: z.boolean().optional().describe('Only show read messages (default: all inbox messages)'),
     includePromotions: z.boolean().optional().describe('Include promotions category'),
     includeSocial: z.boolean().optional().describe('Include social category'),
     profile: profileParam,
   },
-  async ({ limit, includeRead, includePromotions, includeSocial, profile }) => {
+  async ({ limit, unreadOnly, readOnly, includePromotions, includeSocial, profile }) => {
     try {
+      if (unreadOnly && readOnly) throw new Error('Cannot combine unreadOnly and readOnly');
       const queryParts = ['in:inbox'];
-      if (!includeRead) queryParts.push('is:unread');
+      if (unreadOnly) queryParts.push('is:unread');
+      if (readOnly) queryParts.push('is:read');
       if (!includePromotions) queryParts.push('-category:promotions');
       if (!includeSocial) queryParts.push('-category:social');
       const messages = await getGmailClient(profile).searchMessages(queryParts.join(' '), limit ?? 20);
