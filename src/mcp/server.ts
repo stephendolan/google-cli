@@ -255,13 +255,14 @@ server.tool(
   {
     limit: z.number().optional().describe('Maximum number of messages (default: 20)'),
     unread: z.boolean().optional().describe('Only unread messages (default: false)'),
+    read: z.boolean().optional().describe('Only read messages (default: false)'),
     includePromotions: z.boolean().optional().describe('Include promotions category'),
     includeSocial: z.boolean().optional().describe('Include social category'),
     profile: profileParam,
   },
-  async ({ limit, unread, includePromotions, includeSocial, profile }) => {
+  async ({ limit, unread, read, includePromotions, includeSocial, profile }) => {
     try {
-      const query = buildInboxQuery({ unread, includePromotions, includeSocial });
+      const query = buildInboxQuery({ unread, read, includePromotions, includeSocial });
       const messages = await getGmailClient(profile).searchMessages(query, limit ?? 20);
       return jsonResponse(messages);
     } catch (e) {

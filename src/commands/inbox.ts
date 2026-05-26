@@ -16,6 +16,7 @@ export function createInboxCommand(): Command {
     .description('List inbox messages (read and unread, excludes promotions/social by default)')
     .option('-l, --limit <n>', 'Maximum number of messages', '20')
     .option('-u, --unread', 'Only unread messages')
+    .option('-r, --read', 'Only read messages')
     .option('--promotions', 'Include category:promotions')
     .option('--social', 'Include category:social')
     .action(
@@ -23,6 +24,7 @@ export function createInboxCommand(): Command {
         const client = getGmailClient(getProfile(this));
         const query = buildInboxQuery({
           unread: options.unread,
+          read: options.read,
           includePromotions: options.promotions,
           includeSocial: options.social,
         });
