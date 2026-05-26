@@ -75,6 +75,18 @@ describe('buildInboxQuery', () => {
     );
   });
 
+  it('adds is:read when read is true', () => {
+    expect(buildInboxQuery({ read: true })).toBe(
+      'in:inbox is:read -category:promotions -category:social'
+    );
+  });
+
+  it('throws when both unread and read are true', () => {
+    expect(() => buildInboxQuery({ unread: true, read: true })).toThrow(
+      'Cannot combine unread and read filters'
+    );
+  });
+
   it('drops the promotions exclusion when includePromotions is true', () => {
     expect(buildInboxQuery({ includePromotions: true })).toBe(
       'in:inbox -category:social'

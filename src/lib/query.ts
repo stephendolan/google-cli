@@ -6,6 +6,7 @@ function hasOperator(query: string, operator: string): boolean {
 
 export interface InboxQueryOptions {
   unread?: boolean;
+  read?: boolean;
   includePromotions?: boolean;
   includeSocial?: boolean;
 }
@@ -13,10 +14,15 @@ export interface InboxQueryOptions {
 /**
  * Builds the Gmail search query used to list inbox messages. Defaults to
  * read + unread so callers match `search_messages` with `in:inbox`.
+ * `unread` and `read` narrow to a single status and are mutually exclusive.
  */
 export function buildInboxQuery(options: InboxQueryOptions = {}): string {
+  if (options.unread && options.read) {
+    throw new Error('Cannot combine unread and read filters');
+  }
   const parts = ['in:inbox'];
   if (options.unread) parts.push('is:unread');
+  if (options.read) parts.push('is:read');
   if (!options.includePromotions) parts.push('-category:promotions');
   if (!options.includeSocial) parts.push('-category:social');
   return parts.join(' ');
