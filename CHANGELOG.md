@@ -1,3 +1,10 @@
+## [2.5.1](https://github.com/stephendolan/google-cli/compare/v2.5.0...v2.5.1) (2026-06-30)
+
+
+### Bug Fixes
+
+* **calendar:** make date-range queries work and stop silent truncation ([#20](https://github.com/stephendolan/google-cli/issues/20)) ([07b0c64](https://github.com/stephendolan/google-cli/commit/07b0c64862bf48d182444b89a2dd61582294bc0d))
+
 # [2.5.0](https://github.com/stephendolan/google-cli/compare/v2.4.2...v2.5.0) (2026-05-26)
 
 
