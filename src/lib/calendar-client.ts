@@ -12,6 +12,39 @@ function toTimeZone(date: Date, timeZone: string): Date {
   return new Date(localizedString);
 }
 
+/**
+ * Normalize a user-supplied range bound into an RFC3339 timestamp the Google
+ * Calendar API accepts for timeMin/timeMax. A bare date (YYYY-MM-DD) is rejected
+ * by the API, so expand it in the local timezone: a start bound becomes midnight
+ * of that day, an end bound becomes midnight of the next day so the named day is
+ * included. Inputs that already carry a time component pass through unchanged.
+ */
+export function normalizeRangeBound(input: string, bound: 'start' | 'end'): string {
+  const trimmed = input.trim();
+  if (trimmed.includes('T')) return trimmed;
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (!match) {
+    throw new Error(
+      `Invalid date "${input}". Use YYYY-MM-DD or a full ISO 8601 timestamp (e.g. 2026-04-01T00:00:00Z).`
+    );
+  }
+
+  const [, year, month, day] = match;
+  const y = Number(year);
+  const m = Number(month);
+  const d = Number(day);
+  const date = new Date(y, m - 1, d);
+  // The Date constructor rolls overflow values over (2026-13-01 → 2027-01-01,
+  // 2026-02-30 → 2026-03-02), which would silently query the wrong range. Reject
+  // anything that didn't round-trip back to the input.
+  if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) {
+    throw new Error(`Invalid date "${input}". Use a real calendar date in YYYY-MM-DD form.`);
+  }
+  if (bound === 'end') date.setDate(date.getDate() + 1);
+  return date.toISOString();
+}
+
 function parseEvent(event: CalendarEvent): ParsedCalendarEvent {
   if (!event.id) {
     throw new Error('Calendar event missing required id field');
@@ -94,21 +127,46 @@ export class CalendarClient {
     timeZone?: string
   ): Promise<ParsedCalendarEvent[]> {
     const calendar = await this.getCalendar();
-    const response = await calendar.events.list({
-      calendarId,
-      timeMin,
-      timeMax,
-      timeZone,
-      maxResults: maxResults ?? 50,
-      singleEvents: true,
-      orderBy: 'startTime',
-      q: query,
-    });
-    const events = response.data.items ?? [];
-    const actualEvents = events.filter(
-      (e) => e.eventType !== 'workingLocation' && e.eventType !== 'focusTime'
-    );
-    return actualEvents.map(parseEvent);
+    const collected: ParsedCalendarEvent[] = [];
+    let pageToken: string | undefined;
+
+    // Without an explicit cap, page through the entire range so range queries
+    // never silently truncate (the API returns at most 250 events per page).
+    // A safety bound prevents an unbounded loop if the API misbehaves.
+    for (let page = 0; page < 100; page++) {
+      const pageSize =
+        maxResults === undefined ? 250 : Math.min(maxResults - collected.length, 250);
+      const response = await calendar.events.list({
+        calendarId,
+        timeMin,
+        timeMax,
+        timeZone,
+        maxResults: pageSize,
+        singleEvents: true,
+        orderBy: 'startTime',
+        q: query,
+        pageToken,
+      });
+
+      const items = (response.data.items ?? []).filter(
+        (e) => e.eventType !== 'workingLocation' && e.eventType !== 'focusTime'
+      );
+      collected.push(...items.map(parseEvent));
+
+      pageToken = response.data.nextPageToken ?? undefined;
+      if (!pageToken) break;
+      if (maxResults !== undefined && collected.length >= maxResults) break;
+    }
+
+    // An unbounded query that exhausts the page cap with more pages pending is
+    // truncated — surface it rather than silently returning a partial range.
+    if (pageToken && maxResults === undefined) {
+      console.error(
+        `Warning: stopped at ${collected.length} events (page limit reached); range may be truncated. Narrow the date range for complete results.`
+      );
+    }
+
+    return maxResults === undefined ? collected : collected.slice(0, maxResults);
   }
 
   private async fetchEvents(
@@ -133,13 +191,15 @@ export class CalendarClient {
       )
     );
 
-    return allEvents
-      .flat()
-      .sort((a, b) => {
-        const aStart = a.start ?? '';
-        const bStart = b.start ?? '';
-        return aStart.localeCompare(bStart);
-      });
+    const merged = allEvents.flat().sort((a, b) => {
+      const aStart = a.start ?? '';
+      const bStart = b.start ?? '';
+      return aStart.localeCompare(bStart);
+    });
+
+    // Each calendar was capped individually; cap the merged result too so a
+    // multi-calendar query still honors maxResults instead of returning N×cap.
+    return maxResults === undefined ? merged : merged.slice(0, maxResults);
   }
 
   async getEvent(eventId: string, calendarId = 'primary'): Promise<ParsedCalendarEvent> {
@@ -194,7 +254,11 @@ export class CalendarClient {
     timeMax: string,
     calendarId?: string
   ): Promise<ParsedCalendarEvent[]> {
-    return this.fetchEvents(timeMin, timeMax, calendarId);
+    return this.fetchEvents(
+      normalizeRangeBound(timeMin, 'start'),
+      normalizeRangeBound(timeMax, 'end'),
+      calendarId
+    );
   }
 
   async searchEvents(
