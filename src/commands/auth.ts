@@ -138,7 +138,7 @@ export function createAuthCommand(): Command {
     .argument('<name>', 'Profile name to switch to')
     .action(
       withErrorHandling(async (name) => {
-        if (!profileExists(name)) {
+        if (!(await profileExists(name))) {
           throw new GoogleCliError(`Profile '${name}' not found.`);
         }
         setActiveProfile(name);
@@ -157,7 +157,7 @@ export function createAuthCommand(): Command {
     .argument('<name>', 'Profile name to delete')
     .action(
       withErrorHandling(async (name) => {
-        if (!profileExists(name)) {
+        if (!(await profileExists(name))) {
           throw new GoogleCliError(`Profile '${name}' not found.`);
         }
         const active = getActiveProfile();
@@ -216,7 +216,7 @@ export function createAuthCommand(): Command {
 
         const targetProfile = options.name ?? data.profile;
 
-        if (profileExists(targetProfile) && !options.force) {
+        if ((await profileExists(targetProfile)) && !options.force) {
           throw new GoogleCliError(
             `Profile '${targetProfile}' already exists. Use --force to overwrite.`
           );

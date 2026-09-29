@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { getConfigDir } from './config.js';
 
 const SERVICE = 'google-cli';
+const PROFILE_ACCOUNT_REGEX = /^profile:([a-zA-Z0-9_-]+):/;
 
 export interface StorageBackend {
   get(profile: string, key: string): Promise<string | null>;
@@ -82,8 +83,17 @@ class KeyringBackend implements StorageBackend {
   }
 
   async listProfiles(): Promise<string[]> {
-    // Keyring entries cannot be enumerated; config.json is the source of truth for this backend
-    return [];
+    const keyring = await this.getKeyring();
+    if (!keyring) return [];
+    try {
+      const profiles = keyring
+        .findCredentials(SERVICE)
+        .map((c) => PROFILE_ACCOUNT_REGEX.exec(c.account)?.[1])
+        .filter((name): name is string => name !== undefined);
+      return [...new Set(profiles)];
+    } catch {
+      return [];
+    }
   }
 
   async getOldKey(key: string): Promise<string | null> {
