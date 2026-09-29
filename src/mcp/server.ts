@@ -68,9 +68,7 @@ server.tool(
   },
   async ({ profile }) => {
     try {
-      // Reconcile storage-discovered profiles before checking existence
-      await discoverProfiles();
-      if (!profileExists(profile)) {
+      if (!(await profileExists(profile))) {
         return jsonResponse({ error: { name: 'profile_not_found', detail: `Profile '${profile}' not found` } });
       }
       setActiveProfile(profile);

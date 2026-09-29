@@ -66,7 +66,7 @@ async function migrateOldCredentials(): Promise<boolean> {
     })
   );
 
-  if (!profileExists('default')) {
+  if (!(await profileExists('default'))) {
     addProfile('default');
   }
 

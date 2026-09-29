@@ -120,9 +120,9 @@ export async function discoverProfiles(): Promise<string[]> {
   return [...allProfiles];
 }
 
-export function profileExists(name: string): boolean {
-  const config = loadConfig();
-  return name in config.profiles;
+export async function profileExists(name: string): Promise<boolean> {
+  const profiles = await discoverProfiles();
+  return profiles.includes(name);
 }
 
 export function addProfile(name: string, email?: string): void {
